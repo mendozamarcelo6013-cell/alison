@@ -2,6 +2,12 @@
 
 Laboratorio aislado para diseñar y validar la base de datos de Market. No comparte código ni utiliza la base `horus_db` del sitio actual.
 
+## Producción: Clever Cloud + Render
+
+La aplicación se conecta a MySQL exclusivamente por variables de entorno. El archivo local `.env` está ignorado por Git y debe contener las credenciales de Clever Cloud; nunca lo subas al repositorio.
+
+Para Render, el archivo `render.yaml` define el servicio Node, el comando `npm ci`, el inicio con `npm start` y el health check `/health`. Al crear el servicio, configura en Render los secretos `DB_HOST`, `DB_NAME`, `DB_USER` y `DB_PASS` con los valores de Clever Cloud. Mantén `DB_PORT=3306`, `DB_DIALECT=mysql` y, salvo que Clever Cloud exija TLS, `DB_SSL=false`.
+
 ## Preparación
 
 1. Crea una base vacía en MySQL: `CREATE DATABASE horus_market_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`

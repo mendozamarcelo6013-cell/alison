@@ -14,7 +14,7 @@ async function iniciarServidor() {
       console.log(`Horus Market API disponible en http://localhost:${port}/api`);
     });
   } catch (error) {
-    console.error('No se pudo conectar a MySQL. Revisa XAMPP y las variables de .env.');
+    console.error('No se pudo conectar a MySQL. Revisa las variables de entorno y el acceso al proveedor de base de datos.');
     console.error(error.message);
     process.exitCode = 1;
   }
