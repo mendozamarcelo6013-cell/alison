@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Carrito local de Horus Market.">
+    <title>Carrito | Horus Market</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/market-carrito.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-content">
+        <a class="brand" href="/market.html" aria-label="Volver a Horus Market">
+          <span class="brand-mark" aria-hidden="true">H</span>
+          <span><strong>Horus Group</strong><span class="brand-section">Market</span></span>
+        </a>
+        <a class="back-link" href="/market.html">← Volver al Market</a>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">Horus Market</p>
+          <h1>Tu carrito</h1>
+        </div>
+        <span class="cart-count">Unidades: <span data-cart-count>0</span></span>
+      </div>
+
+      <p id="loading-state" class="state-message" role="status">Actualizando productos del carrito…</p>
+      <section id="error-state" class="state-message error-state" role="alert" hidden></section>
+      <section id="empty-state" class="empty-state" hidden>
+        <h2>Tu carrito está vacío</h2>
+        <p>Agrega productos desde el catálogo para verlos aquí.</p>
+        <a href="/market.html" class="market-button">Volver al Market</a>
+      </section>
+
+      <section id="cart-content" class="cart-layout" hidden>
+        <div id="cart-items" class="cart-items"></div>
+        <aside class="summary-card" aria-label="Resumen del carrito">
+          <h2>Resumen</h2>
+          <div class="summary-line"><span>Subtotal</span><strong id="subtotal">S/ 0.00</strong></div>
+          <p class="validation-note">El precio y stock serán validados nuevamente al finalizar la compra.</p>
+          <button type="button" class="checkout-button" disabled>Checkout próximamente</button>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="site-footer"><p>Horus Group SRL · Market de prueba</p></footer>
+
+    <script src="js/cart.js" defer></script>
+    <script src="js/market-carrito.js" defer></script>
+  </body>
+</html>

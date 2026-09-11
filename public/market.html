@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Catálogo de productos de Horus Market.">
+    <title>Market | Horus Group</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/market.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-content">
+        <a class="brand" href="market.html" aria-label="Horus Market, inicio">
+          <span class="brand-mark" aria-hidden="true">H</span>
+          <span>
+            <strong>Horus Group</strong>
+            <span class="brand-section">Market</span>
+          </span>
+        </a>
+
+        <div class="header-actions">
+          <label class="search-box" for="catalog-search">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="catalog-search" type="search" placeholder="Buscar productos" aria-label="Buscar productos">
+          </label>
+          <a class="cart-link" href="/market-carrito.html">Carrito (<span data-cart-count>0</span>)</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="catalog-intro" aria-labelledby="market-title">
+        <div>
+          <p class="eyebrow">Catálogo en línea</p>
+          <h1 id="market-title">Market</h1>
+          <p class="intro-copy">Explora productos y soluciones disponibles en Horus Group.</p>
+        </div>
+      </section>
+
+      <section class="catalog-section categories-section" aria-labelledby="categories-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Explora por tipo</p>
+            <h2 id="categories-title">Categorías</h2>
+          </div>
+        </div>
+        <div id="categories-list" class="categories-list" aria-live="polite"></div>
+      </section>
+
+      <section class="catalog-section products-section" aria-labelledby="products-title">
+        <div class="section-heading products-heading">
+          <div>
+            <p class="eyebrow">Disponible ahora</p>
+            <h2 id="products-title">Productos</h2>
+          </div>
+          <span id="product-count" class="product-count" hidden></span>
+        </div>
+
+        <p id="loading-state" class="state-message" role="status">Cargando catálogo…</p>
+        <div id="error-state" class="state-message error-state" role="alert" hidden></div>
+        <p id="empty-state" class="state-message" hidden>No hay productos disponibles por el momento.</p>
+        <div id="products-grid" class="products-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Horus Group SRL · Market de prueba</p>
+    </footer>
+
+    <script src="js/cart.js" defer></script>
+    <script src="js/market.js" defer></script>
+  </body>
+</html>
