@@ -248,6 +248,12 @@ h1, h2, h3 { color: var(--primary-dark); line-height: 1.18; }
   .brand strong { font-size: 0.87rem; }
   .brand-mark { width: 52px; height: 41px; }
   .header-actions { margin-left: auto; }
+  /* Market en móvil: sin Administrar y carrito solo con icono. */
+  .header-actions--doble { width: auto; margin-left: auto; display: flex; }
+  .header-actions--doble .admin-link { display: none; }
+  .header-actions--doble .cart-link { min-width: 44px; min-height: 44px; justify-content: center; padding: 8px; font-size: 0.74rem; }
+  .header-actions--doble .cart-link span { display: none; }
+  .header-actions--doble .cart-link svg { width: 22px; height: 22px; }
   .cart-link { padding: 8px 10px; font-size: 0.74rem; }
   .back-link:not(.header-action-button) { display: none; }
   .header-action-button { padding: 8px 10px; font-size: 0.74rem; }
