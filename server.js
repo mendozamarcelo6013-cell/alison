@@ -1,5 +1,15 @@
 require('dotenv').config();
 
+const { exigirSecretoArranque } = require('./src/utils/token');
+
+try {
+  exigirSecretoArranque();
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+  return;
+}
+
 const app = require('./src/app');
 const sequelize = require('./src/config/database');
 

@@ -25,3 +25,7 @@ services:
         value: mysql
       - key: DB_SSL
         value: "false"
+      - key: ADMIN_SESSION_SECRET
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"

@@ -9,13 +9,16 @@
     "db:seed": "sequelize-cli db:seed:all",
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
     "db:reset": "sequelize-cli db:seed:undo:all && sequelize-cli db:migrate:undo:all && sequelize-cli db:migrate && sequelize-cli db:seed:all",
-    "check": "node --check src/database/migrations/20260910-create-market-core.js && node --check src/database/seeders/20260911-market-catalog.js",
+    "check": "node --check src/database/migrations/20260910-create-market-core.js && node --check src/database/migrations/20260921-normalize-producto-imagenes-principal.js && node --check src/database/seeders/20260911-market-catalog.js",
+    "test": "node --test tests/*.test.js",
+    "db:seed:admin": "node scripts/crear-admin.js",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.18.3",
+    "multer": "^2.4.0",
     "mysql2": "^3.9.2",
     "sequelize": "^6.37.1"
   },

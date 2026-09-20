@@ -1,4 +1,5 @@
 const { Categoria, Producto, ProductoImagen } = require('../models');
+const { construirUrlPublica } = require('../services/imagenProducto');
 
 const atributosProducto = [
   'id',
@@ -30,7 +31,7 @@ const incluirImagenes = {
   required: false,
   separate: true,
   attributes: ['id', 'url', 'texto_alternativo', 'orden', 'principal'],
-  order: [['orden', 'ASC']],
+  order: [['principal', 'DESC'], ['orden', 'ASC'], ['id', 'ASC']],
 };
 
 exports.listarProductos = async (req, res) => {
@@ -42,7 +43,15 @@ exports.listarProductos = async (req, res) => {
       order: [['destacado', 'DESC'], ['createdAt', 'DESC']],
     });
 
-    return res.json({ ok: true, productos });
+    const resultado = productos.map((producto) => {
+      const datos = producto.toJSON();
+      const imagenes = Array.isArray(datos.imagenes) ? datos.imagenes : [];
+      const portada = imagenes.find((imagen) => imagen.principal) || imagenes[0];
+      datos.imagenes = portada ? [portada] : [];
+      datos.imagenes.forEach((imagen) => { imagen.url = construirUrlPublica(req, imagen.url); });
+      return datos;
+    });
+    return res.json({ ok: true, productos: resultado });
   } catch (error) {
     console.error('Error al listar productos:', error);
     return res.status(500).json({
@@ -70,7 +79,9 @@ exports.obtenerProductoPorSlug = async (req, res) => {
       });
     }
 
-    return res.json({ ok: true, producto });
+    const datos = producto.toJSON();
+    (datos.imagenes || []).forEach((imagen) => { imagen.url = construirUrlPublica(req, imagen.url); });
+    return res.json({ ok: true, producto: datos });
   } catch (error) {
     console.error('Error al obtener producto:', error);
     return res.status(500).json({

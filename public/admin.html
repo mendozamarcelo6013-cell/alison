@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de administración | Horus Market</title>
+  <meta name="description" content="Panel de administración de productos de Horus Market.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <!-- Barra superior estilo wp-admin -->
+  <header class="wp-topbar">
+    <div class="wp-topbar-left">
+      <button id="menu-toggle" class="icon-btn" aria-label="Mostrar u ocultar menú">☰</button>
+      <a class="wp-brand" href="admin.html" aria-label="Horus Market, administración">
+        <span class="wp-logo" aria-hidden="true">
+          <img src="/assets/logo-horus.png" alt="">
+        </span>
+        <span class="brand-text">
+          <strong>Horus Group</strong>
+          <span>Market · Panel <em>Admin</em></span>
+        </span>
+      </a>
+    </div>
+    <div class="wp-topbar-right">
+      <span id="api-status" class="api-status is-checking">● Conectando…</span>
+      <span id="user-email" class="topbar-user" hidden></span>
+      <a class="topbar-link" href="market.html" target="_blank" rel="noopener">↗ Ver tienda</a>
+      <button id="btn-logout" class="topbar-link topbar-btn" hidden>Cerrar sesión</button>
+      <span class="wp-avatar" title="Administrador">A</span>
+    </div>
+  </header>
+
+  <div class="wp-shell">
+    <!-- Menú lateral estilo WordPress -->
+    <aside id="sidebar" class="wp-sidebar">
+      <p class="menu-caption">Panel de control</p>
+      <nav aria-label="Menú de administración">
+        <a href="admin.html" class="menu-item active"><span class="dashicon">◈</span> Escritorio</a>
+        <button class="menu-group is-open" data-group="productos">
+          <span><span class="dashicon">▦</span> Productos</span><span class="caret">▾</span>
+        </button>
+        <div class="submenu" id="submenu-productos">
+          <a href="#" class="submenu-item active" data-view="todos">Todos los productos</a>
+          <a href="#" class="submenu-item" data-view="nuevo">Añadir nuevo</a>
+          <a href="#" class="submenu-item" data-view="publicado">Publicados</a>
+          <a href="#" class="submenu-item" data-view="borrador">Borradores</a>
+        </div>
+        <a href="market.html" class="menu-item"><span class="dashicon">◉</span> Categorías <small id="cat-count"></small></a>
+        <a href="#" class="menu-item" data-view="sinStock"><span class="dashicon">⚠</span> Sin stock</a>
+        <a href="#" class="menu-item" data-view="destacados"><span class="dashicon">★</span> Destacados</a>
+        <a href="#" class="menu-item" data-view="actividad"><span class="dashicon">☰</span> Actividad</a>
+        <hr>
+        <a class="menu-item muted" href="/api/admin/stats" target="_blank" rel="noopener"><span class="dashicon">≋</span> API / Stats</a>
+        <a class="menu-item muted" href="market-carrito.html"><span class="dashicon">☷</span> Ver carrito</a>
+      </nav>
+      <div class="sidebar-foot">
+        <p>Horus Group · Market Lab</p>
+        <p class="muted">CRUD: crear · leer · actualizar · eliminar</p>
+      </div>
+    </aside>
+
+    <!-- Contenido -->
+    <main class="wp-content">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">Horus Group · Market</p>
+          <h1 id="page-title">Productos <span class="title-action">Añadir nuevo</span></h1>
+          <p class="page-sub" id="page-sub">Gestiona el catálogo de la tienda desde este panel.</p>
+        </div>
+        <div class="page-actions">
+          <button id="btn-refresh" class="btn btn-ghost">⟳ Recargar</button>
+          <button id="btn-new" class="btn btn-primary">＋ Añadir producto</button>
+        </div>
+      </div>
+
+      <!-- Tarjetas -->
+      <section class="stats-grid" aria-label="Resumen">
+        <article class="stat-card"><span class="stat-label">Total</span><strong id="stat-total">—</strong><span class="stat-hint">productos registrados</span></article>
+        <article class="stat-card green"><span class="stat-label">Publicados</span><strong id="stat-pub">—</strong><span class="stat-hint">visibles en tienda</span></article>
+        <article class="stat-card amber"><span class="stat-label">Borradores</span><strong id="stat-draft">—</strong><span class="stat-hint">ocultos / papelera</span></article>
+        <article class="stat-card red"><span class="stat-label">Sin stock</span><strong id="stat-nostock">—</strong><span class="stat-hint">requieren reposición</span></article>
+        <article class="stat-card blue"><span class="stat-label">Destacados</span><strong id="stat-feat">—</strong><span class="stat-hint">prioridad en catálogo</span></article>
+      </section>
+
+      <!-- Barra de herramientas tipo listado WP -->
+      <section class="wp-card">
+        <div class="tablenav top">
+          <ul class="subsubsub" id="filter-links">
+            <li><a href="#" class="current" data-filter="todos">Todos</a> |</li>
+            <li><a href="#" data-filter="publicado">Publicados</a> |</li>
+            <li><a href="#" data-filter="borrador">Borradores</a> |</li>
+            <li><a href="#" data-filter="sinStock">Sin stock</a> |</li>
+            <li><a href="#" data-filter="destacados">Destacados</a></li>
+          </ul>
+          <div class="tablenav-actions">
+            <select id="filter-category" aria-label="Filtrar por categoría">
+              <option value="">Todas las categorías</option>
+            </select>
+            <div class="search-box">
+              <input id="search" type="search" placeholder="Buscar por nombre, SKU o slug…">
+              <button id="btn-search" class="btn btn-ghost">Buscar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bulk-row">
+          <select id="bulk-action" aria-label="Acciones en lote">
+            <option value="">Acciones en lote</option>
+            <option value="publicar">Publicar</option>
+            <option value="borrador">Pasar a borrador</option>
+            <option value="destacar">Marcar destacado</option>
+            <option value="quitar-destacado">Quitar destacado</option>
+            <option value="eliminar">Enviar a papelera</option>
+          </select>
+          <button id="btn-bulk" class="btn btn-ghost">Aplicar</button>
+          <span id="count-label" class="count-label"></span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="wp-table">
+            <thead>
+              <tr>
+                <th class="col-check"><input type="checkbox" id="check-all" aria-label="Seleccionar todos"></th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="8" class="empty">Cargando productos…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tablenav bottom">
+          <span id="pagination-info" class="muted"></span>
+          <div class="pager">
+            <button id="prev-page" class="btn btn-ghost">‹ Anterior</button>
+            <span id="page-info"></span>
+            <button id="next-page" class="btn btn-ghost">Siguiente ›</button>
+          </div>
+        </div>
+      </section>
+
+      <p class="help-text">El borrado envía a papelera (despublica) y puede restaurarse. No existe borrado definitivo por HTTP: la purga se hace en base de datos con respaldo. Todo cambio de stock exige motivo y genera un movimiento de inventario.</p>
+
+      <section class="wp-card activity-card" id="activity-section" hidden>
+        <div class="tablenav top">
+          <h2>Actividad reciente <small class="muted">bitácora de administración</small></h2>
+          <button id="btn-activity-refresh" class="btn btn-ghost">⟳ Actualizar</button>
+        </div>
+        <div class="table-wrap">
+          <table class="wp-table">
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Producto</th><th>Detalle</th></tr></thead>
+            <tbody id="activity-tbody"><tr><td colspan="5" class="empty">Sin registros.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal añadir / editar -->
+  <div id="modal-backdrop" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h2 id="modal-title">Añadir producto</h2>
+        <button id="modal-close" class="icon-btn" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="product-form">
+        <input type="hidden" id="f-id">
+        <div class="form-grid">
+          <label class="full">Nombre *
+            <input id="f-nombre" required maxlength="180" placeholder="Ej. Laptop HP 15">
+          </label>
+          <label>Slug <small>(auto si se deja vacío)</small>
+            <input id="f-slug" placeholder="laptop-hp-15">
+          </label>
+          <label>SKU <small>(auto si se deja vacío)</small>
+            <input id="f-sku" placeholder="LAPTOP-AB12">
+          </label>
+          <label>Categoría
+            <select id="f-categoria"><option value="">— Sin categoría —</option></select>
+          </label>
+          <label>Tipo
+            <select id="f-tipo">
+              <option value="fisico">Físico</option>
+              <option value="servicio">Servicio</option>
+              <option value="digital">Digital</option>
+            </select>
+          </label>
+          <label>Precio (S/) *
+            <input id="f-precio" type="number" min="0" step="0.01" required placeholder="0.00">
+          </label>
+          <label>Moneda
+            <input id="f-moneda" maxlength="3" value="PEN">
+          </label>
+          <label>Stock
+            <input id="f-stock" type="number" min="0" step="1" value="0">
+          </label>
+          <label>Motivo del ajuste de stock <small>(obligatorio si cambias el stock)</small>
+            <input id="f-motivo" maxlength="500" placeholder="Ej. Inventario físico enero">
+          </label>
+          <label>Peso (gramos)
+            <input id="f-peso" type="number" min="0" step="1" placeholder="Opcional">
+          </label>
+          <label class="full">Descripción corta
+            <input id="f-desc-corta" maxlength="500" placeholder="Resumen para la tarjeta del catálogo">
+          </label>
+          <label class="full">Descripción
+            <textarea id="f-desc" rows="4" placeholder="Descripción completa del producto"></textarea>
+          </label>
+          <label class="full">Imagen principal (URL, opcional)
+            <input id="f-imagen" type="url" placeholder="https://…">
+          </label>
+          <label class="full">Imágenes del producto
+            <input id="f-imagenes" type="file" multiple accept="image/jpeg,image/png,image/webp">
+            <small>JPG, PNG o WEBP. Máximo 5 MB por imagen.</small>
+          </label>
+          <div id="f-imagenes-preview" class="image-list full" aria-live="polite"></div>
+          <div class="img-preview full">
+            <img id="f-preview" alt="Vista previa" hidden>
+            <span id="f-preview-empty" class="muted">Sin vista previa</span>
+          </div>
+          <label class="check"><input type="checkbox" id="f-activo" checked> Publicado (visible en tienda)</label>
+          <label class="check"><input type="checkbox" id="f-destacado"> Destacado</label>
+          <label class="check"><input type="checkbox" id="f-controla" checked> Controlar stock</label>
+        </div>
+        <p id="form-error" class="form-error" hidden></p>
+        <div class="modal-foot">
+          <button type="button" id="modal-cancel" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" id="form-submit" class="btn btn-primary">Guardar producto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal ver detalle -->
+  <div id="view-backdrop" class="modal-backdrop" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="view-title">
+      <div class="modal-head">
+        <h2 id="view-title">Detalle</h2>
+        <button id="view-close" class="icon-btn" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="view-body" class="view-body"></div>
+      <div class="modal-foot">
+        <button id="view-delete" class="btn btn-danger-ghost">Enviar a papelera</button>
+        <button id="view-edit" class="btn btn-primary">Editar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm genérico (solo papelera, sin borrado duro) -->
+  <div id="confirm-backdrop" class="modal-backdrop" hidden>
+    <div class="modal modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title">Confirmar</h2>
+      <p id="confirm-text" class="muted"></p>
+      <div class="modal-foot">
+        <button id="confirm-cancel" class="btn btn-ghost">Cancelar</button>
+        <button id="confirm-ok" class="btn btn-danger">Enviar a papelera</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login wall: el panel no muestra datos sin token admin -->
+  <div id="login-backdrop" class="modal-backdrop" hidden>
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <h2 id="login-title">Acceso al panel</h2>
+      <p class="muted">Solo usuarios con rol <strong>admin</strong>. Crea el primero con <code>npm run db:seed:admin</code>.</p>
+      <form id="login-form">
+        <div class="form-grid single">
+          <label>Email <input id="l-email" type="email" required autocomplete="username"></label>
+          <label>Contraseña <input id="l-pass" type="password" required autocomplete="current-password"></label>
+        </div>
+        <p id="login-error" class="form-error" hidden></p>
+        <div class="modal-foot">
+          <button type="submit" id="login-submit" class="btn btn-primary">Iniciar sesión</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="js/admin.js" defer></script>
+</body>
+</html>

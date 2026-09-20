@@ -9,6 +9,7 @@ const Pago = require('./Pago');
 const ComprobantePago = require('./ComprobantePago');
 const Envio = require('./Envio');
 const MovimientoStock = require('./MovimientoStock');
+const AuditoriaAdmin = require('./AuditoriaAdmin');
 
 Usuario.hasMany(Direccion, { foreignKey: 'usuario_id', as: 'direcciones' });
 Usuario.hasMany(Pedido, { foreignKey: 'usuario_id', as: 'pedidos' });
@@ -61,4 +62,5 @@ module.exports = {
   ComprobantePago,
   Envio,
   MovimientoStock,
+  AuditoriaAdmin,
 };

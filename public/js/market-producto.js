@@ -153,41 +153,75 @@ function crearControlesCompra(producto) {
   return controles;
 }
 
-function renderizarGaleria(contenedor, imagenes, indicePrincipal, nombreProducto) {
-  const restantes = imagenes.filter((imagen, indice) => indice !== indicePrincipal);
-  if (restantes.length === 0) return;
+function renderizarGaleria(contenedor, imagenes, nombreProducto) {
+  if (!imagenes.length) {
+    contenedor.append(crearPlaceholder('image-placeholder'));
+    return;
+  }
 
-  const galeria = document.createElement('section');
-  galeria.className = 'gallery';
+  let indiceActual = 0;
+  const marco = document.createElement('div');
+  marco.className = 'gallery-frame';
+  const capaImagen = document.createElement('div');
+  capaImagen.className = 'gallery-image-layer';
+  const imagen = crearImagen(imagenes[0], 'product-main-image', nombreProducto, 'image-placeholder');
+  capaImagen.append(imagen);
+  marco.append(capaImagen);
+  contenedor.append(marco);
+  if (imagenes.length === 1) return;
 
-  const titulo = document.createElement('p');
-  titulo.className = 'gallery-title';
-  titulo.textContent = 'Más imágenes';
+  const cambiarImagen = (indice) => {
+    indiceActual = (indice + imagenes.length) % imagenes.length;
+    const nueva = crearImagen(imagenes[indiceActual], 'product-main-image', nombreProducto, 'image-placeholder');
+    nueva.classList.add('gallery-image-enter');
+    capaImagen.replaceChildren(nueva);
+    puntos.querySelectorAll('.gallery-dot').forEach((punto, puntoIndice) => {
+      punto.classList.toggle('active', puntoIndice === indiceActual);
+      punto.setAttribute('aria-current', puntoIndice === indiceActual ? 'true' : 'false');
+    });
+  };
 
-  const rejilla = document.createElement('div');
-  rejilla.className = 'gallery-grid';
+  const anterior = document.createElement('button');
+  anterior.type = 'button';
+  anterior.className = 'gallery-arrow gallery-previous';
+  anterior.textContent = '‹';
+  anterior.setAttribute('aria-label', 'Imagen anterior');
+  anterior.addEventListener('click', () => cambiarImagen(indiceActual - 1));
+  const siguiente = document.createElement('button');
+  siguiente.type = 'button';
+  siguiente.className = 'gallery-arrow gallery-next';
+  siguiente.textContent = '›';
+  siguiente.setAttribute('aria-label', 'Imagen siguiente');
+  siguiente.addEventListener('click', () => cambiarImagen(indiceActual + 1));
+  marco.append(anterior, siguiente);
 
-  restantes.forEach((imagen) => {
-    rejilla.append(crearImagen(imagen, 'gallery-image', nombreProducto, 'gallery-placeholder'));
+  const puntos = document.createElement('div');
+  puntos.className = 'gallery-dots';
+  imagenes.forEach((imagenProducto, indice) => {
+    const punto = document.createElement('button');
+    punto.type = 'button';
+    punto.className = `gallery-dot${indice === 0 ? ' active' : ''}`;
+    punto.setAttribute('aria-label', `Ver imagen ${indice + 1}`);
+    punto.setAttribute('aria-current', indice === 0 ? 'true' : 'false');
+    punto.addEventListener('click', () => cambiarImagen(indice));
+    puntos.append(punto);
   });
-
-  galeria.append(titulo, rejilla);
-  contenedor.append(galeria);
+  contenedor.append(puntos);
 }
 
 function renderizarProducto(producto) {
   productDetail.replaceChildren();
 
   const imagenes = Array.isArray(producto.imagenes) ? producto.imagenes : [];
-  const indicePrincipal = imagenes.findIndex((imagen) => imagen.principal);
-  const indiceImagen = indicePrincipal >= 0 ? indicePrincipal : 0;
-  const imagenPrincipal = imagenes[indiceImagen];
+  const imagenesOrdenadas = [...imagenes].sort((a, b) => {
+    if (Boolean(a.principal) !== Boolean(b.principal)) return a.principal ? -1 : 1;
+    return Number(a.orden || 0) - Number(b.orden || 0);
+  });
   const nombreProducto = textoSeguro(producto.nombre, 'Producto');
 
   const media = document.createElement('div');
   media.className = 'product-media';
-  media.append(crearImagen(imagenPrincipal, 'product-main-image', nombreProducto, 'image-placeholder'));
-  renderizarGaleria(media, imagenes, indicePrincipal >= 0 ? indicePrincipal : 0, nombreProducto);
+  renderizarGaleria(media, imagenesOrdenadas, nombreProducto);
 
   const resumen = document.createElement('div');
   resumen.className = 'product-summary';
