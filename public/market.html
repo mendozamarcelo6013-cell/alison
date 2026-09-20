@@ -8,13 +8,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/market-shared.css">
     <link rel="stylesheet" href="css/market.css">
   </head>
   <body>
     <header class="site-header">
       <div class="header-content">
         <a class="brand" href="market.html" aria-label="Horus Market, inicio">
-          <span class="brand-mark" aria-hidden="true">H</span>
+          <span class="brand-mark" aria-hidden="true">
+            <img src="/assets/logo-horus.png" alt="">
+          </span>
           <span>
             <strong>Horus Group</strong>
             <span class="brand-section">Market</span>
@@ -26,7 +29,14 @@
             <span class="search-icon" aria-hidden="true">⌕</span>
             <input id="catalog-search" type="search" placeholder="Buscar productos" aria-label="Buscar productos">
           </label>
-          <a class="cart-link" href="/market-carrito.html">Carrito (<span data-cart-count>0</span>)</a>
+          <a class="cart-link" href="/market-carrito.html">
+            <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
+              <path d="M0 0h16v16H0z" fill="none" />
+              <path fill="currentColor" d="M5.5 12a1.5 1.5 0 1 1 0 3.001a1.5 1.5 0 0 1 0-3m6-.001a1.5 1.5 0 1 1 0 3.001a1.5 1.5 0 0 1 0-3M3.364 2.047l.151.017a1 1 0 0 1 .756.647l.813 2.29h8.529a1 1 0 0 1 .948 1.315l-1.333 4a1 1 0 0 1-.948.684H5.72c-.43 0-.813-.276-.95-.684l-1.2-3.603l-.956-2.692l-.649-.022a1 1 0 0 1 .069-1.998z" />
+            </svg>
+
+            <span>Carrito (<span data-cart-count>0</span>)</span>
+          </a>
         </div>
       </div>
     </header>
@@ -40,34 +50,52 @@
         </div>
       </section>
 
-      <section class="catalog-section categories-section" aria-labelledby="categories-title">
-        <div class="section-heading">
-          <div>
+      <section class="catalog-section products-section" aria-labelledby="products-title">
+        <div class="catalog-layout">
+          <aside class="catalog-filters" aria-labelledby="categories-title">
             <p class="eyebrow">Explora por tipo</p>
             <h2 id="categories-title">Categorías</h2>
+            <div id="categories-list" class="categories-list" role="group" aria-label="Filtrar productos por categoría"></div>
+          </aside>
+
+          <div class="catalog-products">
+            <div class="section-heading products-heading">
+              <div>
+                <p class="eyebrow">Disponible ahora</p>
+                <h2 id="products-title">Productos</h2>
+              </div>
+              <span id="product-count" class="product-count" hidden></span>
+            </div>
+
+            <p id="loading-state" class="state-message" role="status">Cargando catálogo…</p>
+            <div id="error-state" class="state-message error-state" role="alert" hidden></div>
+            <p id="empty-state" class="state-message" hidden>No encontramos productos con esos filtros.</p>
+            <div id="products-grid" class="products-grid" aria-live="polite"></div>
           </div>
         </div>
-        <div id="categories-list" class="categories-list" aria-live="polite"></div>
-      </section>
-
-      <section class="catalog-section products-section" aria-labelledby="products-title">
-        <div class="section-heading products-heading">
-          <div>
-            <p class="eyebrow">Disponible ahora</p>
-            <h2 id="products-title">Productos</h2>
-          </div>
-          <span id="product-count" class="product-count" hidden></span>
-        </div>
-
-        <p id="loading-state" class="state-message" role="status">Cargando catálogo…</p>
-        <div id="error-state" class="state-message error-state" role="alert" hidden></div>
-        <p id="empty-state" class="state-message" hidden>No hay productos disponibles por el momento.</p>
-        <div id="products-grid" class="products-grid" aria-live="polite"></div>
       </section>
     </main>
 
-    <footer class="site-footer">
-      <p>Horus Group SRL · Market de prueba</p>
+    <footer class="market-footer">
+      <div class="market-footer-content">
+        <div>
+          <a class="footer-brand" href="/market.html"><span class="brand-mark" aria-hidden="true"><img src="/assets/logo-horus.png" alt=""></span> Horus Group</a>
+          <p class="footer-copy">Soluciones tecnológicas y productos seleccionados para tus proyectos.</p>
+        </div>
+        <div>
+          <h2 class="footer-heading">Market</h2>
+          <nav class="footer-links" aria-label="Enlaces del Market">
+            <a href="/market.html">Catálogo</a>
+            <a href="/market-carrito.html">Mi carrito</a>
+          </nav>
+        </div>
+        <div>
+          <h2 class="footer-heading">Contacto</h2>
+          <p class="footer-contact">Cajamarca, Perú</p>
+          <p class="footer-contact">horusgroupcajamarca@gmail.com</p>
+        </div>
+      </div>
+      <div class="footer-bottom">© 2026 Horus Group SRL. Todos los derechos reservados.</div>
     </footer>
 
     <script src="js/cart.js" defer></script>

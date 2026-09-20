@@ -10,6 +10,7 @@ const atributosProducto = [
   'precio',
   'moneda',
   'stock',
+  'controla_stock',
   'destacado',
 ];
 

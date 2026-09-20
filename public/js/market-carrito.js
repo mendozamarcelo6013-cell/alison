@@ -4,6 +4,7 @@ const emptyState = document.getElementById('empty-state');
 const cartContent = document.getElementById('cart-content');
 const cartItems = document.getElementById('cart-items');
 const subtotalElement = document.getElementById('subtotal');
+const checkoutButton = document.getElementById('checkout-button');
 
 function textoSeguro(valor, alternativa = '') {
   return typeof valor === 'string' ? valor : alternativa;
@@ -48,7 +49,10 @@ async function consultarProducto(item) {
       return { item, estado: 'error' };
     }
 
-    const stock = Math.max(0, Number.parseInt(datos.producto.stock, 10) || 0);
+    const controlaStock = datos.producto.controla_stock !== false;
+    const stock = controlaStock
+      ? Math.max(0, Number.parseInt(datos.producto.stock, 10) || 0)
+      : 99;
     const itemActualizado = stock > 0 && item.cantidad > stock
       ? window.HorusCart.actualizarCantidad(item.slug, stock, stock)
       : item;
@@ -57,7 +61,7 @@ async function consultarProducto(item) {
       item: itemActualizado || item,
       producto: datos.producto,
       stock,
-      estado: stock === 0 ? 'agotado' : 'disponible',
+      estado: controlaStock && stock === 0 ? 'agotado' : 'disponible',
     };
   } catch {
     return { item, estado: 'error' };
@@ -105,7 +109,9 @@ function renderizarItem(registro, registros) {
     sku.textContent = `SKU: ${textoSeguro(producto.sku, 'No disponible')}`;
     const stock = document.createElement('span');
     stock.className = 'item-stock';
-    stock.textContent = `Stock disponible: ${registro.stock} unidades`;
+    stock.textContent = producto.controla_stock === false
+      ? 'Disponibilidad: inmediata'
+      : `Stock disponible: ${registro.stock} unidades`;
     const estado = document.createElement('p');
     estado.className = `availability${registro.estado === 'agotado' ? ' unavailable' : ''}`;
     estado.textContent = registro.estado === 'agotado' ? 'Agotado' : 'Disponible';
@@ -160,6 +166,17 @@ function renderizarCarrito(registros) {
     .filter((registro) => registro.producto && registro.estado === 'disponible')
     .reduce((total, registro) => total + precio(registro.producto.precio) * registro.item.cantidad, 0);
   subtotalElement.textContent = precioTexto(subtotal);
+
+  const contieneProductoNoDisponible = registros.some(
+    (registro) => !registro.producto || registro.estado !== 'disponible',
+  );
+  const hayProductosDisponibles = registros.some(
+    (registro) => registro.producto && registro.estado === 'disponible',
+  );
+  checkoutButton.disabled = contieneProductoNoDisponible || !hayProductosDisponibles;
+  checkoutButton.title = checkoutButton.disabled
+    ? 'Elimina o actualiza los productos no disponibles para continuar.'
+    : '';
 }
 
 async function cargarCarrito() {
@@ -188,3 +205,9 @@ async function cargarCarrito() {
 }
 
 document.addEventListener('DOMContentLoaded', cargarCarrito);
+
+checkoutButton.addEventListener('click', () => {
+  if (!checkoutButton.disabled) {
+    window.location.assign('/market-checkout.html');
+  }
+});

@@ -3,6 +3,7 @@ const express = require('express');
 const categoriaRoutes = require('./routes/categoriaRoutes');
 const productoRoutes = require('./routes/productoRoutes');
 const pedidoRoutes = require('./routes/pedidoRoutes');
+const pagoRoutes = require('./routes/pagoRoutes');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.get('/api', (req, res) => {
 app.use('/api/categorias', categoriaRoutes);
 app.use('/api/productos', productoRoutes);
 app.use('/api/pedidos', pedidoRoutes);
+app.use('/api/pagos', pagoRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

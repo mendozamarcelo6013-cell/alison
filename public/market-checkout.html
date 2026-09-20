@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Finaliza tu compra en Horus Market.">
+    <title>Finalizar compra | Horus Market</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/market-shared.css">
+    <link rel="stylesheet" href="css/market-checkout.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-content">
+        <a class="brand" href="/market.html" aria-label="Volver a Horus Market">
+          <span class="brand-mark" aria-hidden="true"><img src="/assets/logo-horus.png" alt=""></span>
+          <span><strong>Horus Group</strong><span class="brand-section">Market</span></span>
+        </a>
+        <div class="header-actions"><a class="back-link header-action-button" href="/market-carrito.html">← Volver al carrito</a></div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-heading">
+        <div><p class="eyebrow">Horus Market</p><h1>Finalizar compra</h1><p>Completa tus datos para registrar el pedido.</p></div>
+        <span class="secure-note">Compra segura</span>
+      </div>
+
+      <p id="loading-state" class="state-message" role="status">Validando tu carrito…</p>
+      <section id="error-state" class="state-message error-state" role="alert" hidden></section>
+
+      <section id="empty-state" class="empty-state" hidden>
+        <h2>Tu carrito está vacío</h2>
+        <p>Agrega productos al carrito antes de finalizar la compra.</p>
+        <a class="button-primary" href="/market.html">Ir al catálogo</a>
+      </section>
+
+      <section id="checkout-content" class="checkout-layout" hidden>
+        <form id="checkout-form" class="checkout-form" novalidate>
+          <section class="form-card">
+            <div class="form-card-heading"><p class="eyebrow">Paso 1</p><h2>Datos de contacto</h2></div>
+            <div class="form-grid">
+              <label class="field field-full">Correo electrónico<input id="email" name="email" type="email" autocomplete="email" required></label>
+              <label class="field">Nombre y apellidos<input id="destinatario" name="destinatario" type="text" autocomplete="name" required></label>
+              <label class="field">Teléfono<input id="telefono" name="telefono" type="tel" autocomplete="tel" required></label>
+            </div>
+          </section>
+
+          <section id="delivery-section" class="form-card" hidden>
+            <div class="form-card-heading"><p class="eyebrow">Paso 2</p><h2>Dirección de entrega</h2><p class="form-hint">La necesitamos porque tu pedido incluye productos físicos.</p></div>
+            <div class="form-grid">
+              <label class="field">Departamento<input id="departamento" name="departamento" type="text" autocomplete="address-level1"></label>
+              <label class="field">Provincia<input id="provincia" name="provincia" type="text" autocomplete="address-level2"></label>
+              <label class="field">Distrito<input id="distrito" name="distrito" type="text"></label>
+              <label class="field field-full">Dirección<input id="direccion-linea1" name="direccion_linea1" type="text" autocomplete="street-address"></label>
+              <label class="field field-full">Referencia <span>(opcional)</span><textarea id="referencia" name="referencia" rows="3"></textarea></label>
+            </div>
+          </section>
+
+          <section class="form-card">
+            <div class="form-card-heading"><p class="eyebrow">Paso 3</p><h2>Confirmación</h2></div>
+            <label class="field field-full">Notas para el pedido <span>(opcional)</span><textarea id="notas" name="notas" rows="3" placeholder="Indica alguna consideración para tu pedido."></textarea></label>
+            <label class="terms-check"><input id="terms" type="checkbox" required><span>He revisado los datos de mi pedido y acepto continuar con el proceso de pago.</span></label>
+            <button id="submit-order" class="button-primary submit-order" type="submit">Registrar pedido y continuar</button>
+            <p class="payment-disclaimer">Al registrar el pedido no se solicitarán datos de tarjeta en esta página. El pago en línea se conectará mediante una pasarela externa segura.</p>
+          </section>
+        </form>
+
+        <aside class="summary-card" aria-label="Resumen del pedido">
+          <p class="eyebrow">Resumen</p><h2>Tu compra</h2>
+          <div id="order-items" class="order-items"></div>
+          <div class="summary-line total-line"><span>Total</span><strong id="order-total">S/ 0.00</strong></div>
+          <p class="validation-note">El monto y la disponibilidad se validan nuevamente antes de crear el pedido.</p>
+        </aside>
+      </section>
+
+      <section id="success-state" class="success-state" hidden aria-live="polite">
+        <p class="eyebrow">Pedido registrado</p>
+        <h2>Gracias por tu compra</h2>
+        <p id="success-message"></p>
+        <div class="payment-ready-card">
+          <h3>Pago en línea</h3>
+          <p>La pasarela se conectará en este punto mediante una redirección segura del proveedor. No se almacenarán datos de tarjeta en Horus Market.</p>
+          <button id="payment-button" type="button" class="button-primary" disabled>Pagar en línea (por configurar)</button>
+        </div>
+        <a class="button-secondary" href="/market.html">Volver al catálogo</a>
+      </section>
+    </main>
+
+    <footer class="market-footer">
+      <div class="market-footer-content">
+        <div><a class="footer-brand" href="/market.html"><span class="brand-mark" aria-hidden="true"><img src="/assets/logo-horus.png" alt=""></span> Horus Group</a><p class="footer-copy">Soluciones tecnológicas y productos seleccionados para tus proyectos.</p></div>
+        <div><h2 class="footer-heading">Market</h2><nav class="footer-links" aria-label="Enlaces del Market"><a href="/market.html">Catálogo</a><a href="/market-carrito.html">Mi carrito</a></nav></div>
+        <div><h2 class="footer-heading">Contacto</h2><p class="footer-contact">Cajamarca, Perú</p><p class="footer-contact">horusgroupcajamarca@gmail.com</p></div>
+      </div>
+      <div class="footer-bottom">© 2026 Horus Group SRL. Todos los derechos reservados.</div>
+    </footer>
+
+    <script src="js/cart.js" defer></script>
+    <script src="js/payment-gateway.js" defer></script>
+    <script src="js/market-checkout.js" defer></script>
+  </body>
+</html>

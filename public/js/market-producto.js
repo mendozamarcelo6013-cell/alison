@@ -61,9 +61,12 @@ function crearDato(nombre, valor) {
 function crearControlesCompra(producto) {
   const controles = document.createElement('div');
   controles.className = 'purchase-controls';
-  const stock = Math.max(0, Number.parseInt(producto.stock, 10) || 0);
+  const controlaStock = producto.controla_stock !== false;
+  const stock = controlaStock
+    ? Math.max(0, Number.parseInt(producto.stock, 10) || 0)
+    : 99;
 
-  if (stock === 0) {
+  if (controlaStock && stock === 0) {
     const agotado = document.createElement('p');
     agotado.className = 'stock-alert';
     agotado.textContent = 'Agotado';
@@ -133,13 +136,14 @@ function crearControlesCompra(producto) {
   botonCarrito.textContent = 'Agregar al carrito';
   botonCarrito.addEventListener('click', () => {
     try {
-      const item = window.HorusCart.agregarProducto({
+      window.HorusCart.agregarProducto({
         producto_id: producto.id,
         slug: producto.slug,
         cantidad,
         stock,
       });
-      feedback.textContent = `Producto agregado. Tienes ${item.cantidad} unidad${item.cantidad === 1 ? '' : 'es'} de este producto en el carrito.`;
+      feedback.textContent = 'Producto agregado. Abriendo tu carrito…';
+      window.location.assign('/market-carrito.html');
     } catch (error) {
       feedback.textContent = textoSeguro(error.message, 'No se pudo agregar el producto al carrito.');
     }
@@ -219,7 +223,7 @@ function renderizarProducto(producto) {
   datos.className = 'info-list';
   const unidades = Number(producto.stock);
   datos.append(
-    crearDato('Stock', Number.isFinite(unidades) ? `${unidades} unidades` : 'No disponible'),
+    crearDato('Stock', producto.controla_stock === false ? 'Disponible' : (Number.isFinite(unidades) ? `${unidades} unidades` : 'No disponible')),
     crearDato('SKU', textoSeguro(producto.sku, 'No disponible')),
   );
 
