@@ -11,6 +11,10 @@
     "db:reset": "sequelize-cli db:seed:undo:all && sequelize-cli db:migrate:undo:all && sequelize-cli db:migrate && sequelize-cli db:seed:all",
     "check": "node --check src/database/migrations/20260910-create-market-core.js && node --check src/database/migrations/20260921-normalize-producto-imagenes-principal.js && node --check src/database/seeders/20260911-market-catalog.js",
     "test": "node --test tests/*.test.js",
+    "test:unit": "node --test tests/admin-unit.test.js",
+    "build:frontend": "npm --prefix frontend run build",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test:frontend": "npm --prefix frontend run test",
     "db:seed:admin": "node scripts/crear-admin.js",
     "start": "node server.js",
     "dev": "node --watch server.js"

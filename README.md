@@ -46,6 +46,18 @@ El rate-limit es en memoria **por instancia** (`LOGIN_RATE_MAX`, `ADMIN_RATE_MAX
 
 `npm run db:reset` elimina únicamente las tablas creadas por las migraciones de este laboratorio y las vuelve a crear con sus datos de muestra. Úsalo solo sobre la base de pruebas.
 
+## Frontend (React + TypeScript + Vite)
+
+La carpeta `frontend/` contiene la migración del frontend a React 19 + TypeScript + Vite, con los mismos cinco documentos (`market.html`, `market-producto.html`, `market-carrito.html`, `market-checkout.html`, `admin.html`). Ver [`frontend/README.md`](frontend/README.md).
+
+```bash
+npm run build:frontend   # compila frontend/dist
+npm run test:frontend    # suites Vitest
+npm run dev:frontend     # Vite con proxy hacia Express
+```
+
+`src/app.js` sirve `frontend/dist` antes que `public/`. Si `dist` no existe, el servidor responde el frontend vanilla original (vuelta atrás sin redesplegar el backend). El backend no cambia: mismas rutas, controladores, validaciones y auth Bearer.
+
 ## Alcance de esta fase
 
 - Usuarios y direcciones.

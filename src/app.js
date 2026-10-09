@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const multer = require('multer');
@@ -59,13 +60,21 @@ app.use('/api/admin', rateLimit({
 
 // admin.html es la pantalla de login + panel: el HTML es público como wp-login.php,
 // pero ningún dato ni mutación responde sin token de rol admin.
-app.use(express.static(path.join(__dirname, '../public'), {
-  setHeaders(res, filePath) {
-    if (filePath.endsWith('admin.html')) {
-      res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' });
-    }
-  },
-}));
+function cabecerasPanel(res, filePath) {
+  if (filePath.endsWith('admin.html')) {
+    res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' });
+  }
+}
+
+// 1) Frontend React compilado (frontend/dist) cuando existe. Al ir antes que
+//    public/, los HTML/estáticos nuevos son los que responde el servidor.
+// 2) public/ queda como respaldo: permite deshacer la migración sin tocar el
+//    backend y sigue aportando /assets y /uploads ya publicados.
+const directorioFrontend = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(directorioFrontend)) {
+  app.use(express.static(directorioFrontend, { setHeaders: cabecerasPanel }));
+}
+app.use(express.static(path.join(__dirname, '../public'), { setHeaders: cabecerasPanel }));
 
 app.get('/health', async (req, res) => {
   try {
