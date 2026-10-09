@@ -1,18 +1,18 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import logoHorus from '../../../public/assets/logo-horus.png';
 
 interface Props {
-  hrefMarca?: string;
   etiquetaMarca?: string;
   children: ReactNode;
 }
 
-/** Cabecera común de las cuatro páginas de tienda (clases del CSS original). */
-export function SiteHeader({ hrefMarca = '/market.html', etiquetaMarca, children }: Props) {
+/** Cabecera común de las páginas de tienda (clases del CSS original). */
+export function SiteHeader({ etiquetaMarca, children }: Props) {
   return (
     <header className="site-header">
       <div className="header-content">
-        <a className="brand" href={hrefMarca} aria-label={etiquetaMarca || 'Volver a Horus Market'}>
+        <Link className="brand" to="/market" aria-label={etiquetaMarca || 'Volver a Horus Market'}>
           <span className="brand-mark" aria-hidden="true">
             <img src={logoHorus} alt="" />
           </span>
@@ -20,7 +20,7 @@ export function SiteHeader({ hrefMarca = '/market.html', etiquetaMarca, children
             <strong>Horus Group</strong>
             <span className="brand-section">Market</span>
           </span>
-        </a>
+        </Link>
         {children}
       </div>
     </header>
@@ -56,34 +56,11 @@ interface PropsEnlaceCarrito {
 /** Enlace al carrito con el contador de unidades (data-cart-count). */
 export function EnlaceCarrito({ unidades, iconoCatalogo = false }: PropsEnlaceCarrito) {
   return (
-    <a className="cart-link" href="/market-carrito.html">
+    <Link className="cart-link" to="/market/carrito">
       {iconoCatalogo ? ICONO_CARRITO_CATALOGO : ICONO_CARRITO}
       <span>
         Carrito (<span data-cart-count>{unidades}</span>)
       </span>
-    </a>
-  );
-}
-
-/** Enlace "Administrar" del catálogo. */
-export function EnlaceAdmin() {
-  return (
-    <a className="cart-link admin-link" href="/admin.html" aria-label="Ingresar al panel de administración">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth="1.8"
-        stroke="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M10.5 6h3m-3 4h3m-6.75 8.25h10.5A2.25 2.25 0 0 0 19.5 16V5.25A2.25 2.25 0 0 0 17.25 3h-10.5A2.25 2.25 0 0 0 4.5 5.25V16a2.25 2.25 0 0 0 2.25 2.25ZM7.5 21h9"
-        />
-      </svg>
-      <span>Administrar</span>
-    </a>
+    </Link>
   );
 }

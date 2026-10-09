@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { crearPedido } from '../api/pedidos';
 import { obtenerConfiguracionPago, iniciarCheckoutPago } from '../api/pagos';
 import { consultarProducto } from '../api/productos';
@@ -10,8 +11,6 @@ import { leerCarrito } from '../state/cart';
 import { precioNumero, precioTexto, textoSeguro } from '../utils/format';
 import { irA } from '../utils/navigation';
 import type { PayloadPedido, PedidoCreado, ProductoConCantidad } from '../types';
-import '../../../public/css/market-shared.css';
-import '../../../public/css/market-checkout.css';
 
 const CLAVE_ULTIMO_PEDIDO = 'horus_market_last_order';
 const MENSAJE_STOCK = 'Uno o más productos ya no están disponibles. Regresa al carrito para actualizarlo.';
@@ -150,7 +149,7 @@ export function CheckoutPage() {
     <>
       <SiteHeader>
         <div className="header-actions">
-          <a className="back-link header-action-button" href="/market-carrito.html">← Volver al carrito</a>
+          <Link className="back-link header-action-button" to="/market/carrito">← Volver al carrito</Link>
         </div>
       </SiteHeader>
 
@@ -174,7 +173,7 @@ export function CheckoutPage() {
         <section id="empty-state" className="empty-state" hidden={fase !== 'vacio'}>
           <h2>Tu carrito está vacío</h2>
           <p>Agrega productos al carrito antes de finalizar la compra.</p>
-          <a className="button-primary" href="/market.html">Ir al catálogo</a>
+          <Link className="button-primary" to="/market">Ir al catálogo</Link>
         </section>
 
         <section id="checkout-content" className="checkout-layout" hidden={fase !== 'listo'}>
@@ -308,7 +307,7 @@ export function CheckoutPage() {
                 : (pagoHabilitado ? 'Pagar en línea' : 'Pagar en línea (por configurar)')}
             </button>
           </div>
-          <a className="button-secondary" href="/market.html">Volver al catálogo</a>
+          <Link className="button-secondary" to="/market">Volver al catálogo</Link>
         </section>
       </main>
 

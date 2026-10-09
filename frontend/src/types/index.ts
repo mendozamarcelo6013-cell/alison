@@ -23,6 +23,7 @@ export interface CategoriaRef {
   id: number;
   nombre: string;
   slug: string;
+  parent_id?: number | null;
 }
 
 export interface Categoria extends CategoriaRef {
@@ -30,6 +31,7 @@ export interface Categoria extends CategoriaRef {
   imagen_url?: string | null;
   activa?: boolean;
   orden?: number;
+  parent_id?: number | null;
 }
 
 export interface ProductoImagen {

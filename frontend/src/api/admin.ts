@@ -127,6 +127,22 @@ export function listarCategoriasAdmin(): Promise<{ ok: true; categorias: Categor
   return adminApi<ListadoCategorias>('/categorias');
 }
 
+export function crearCategoriaAdmin(payload: Partial<Categoria>): Promise<{ ok: true; categoria: Categoria; mensaje?: string }> {
+  return adminApi('/categorias', cuerpoJson('POST', payload));
+}
+
+export function actualizarCategoriaAdmin(id: number, payload: Partial<Categoria>): Promise<{ ok: true; categoria: Categoria; mensaje?: string }> {
+  return adminApi(`/categorias/${id}`, cuerpoJson('PUT', payload));
+}
+
+export function desactivarCategoriaAdmin(id: number): Promise<{ ok: true; mensaje?: string }> {
+  return adminApi(`/categorias/${id}`, { method: 'DELETE' });
+}
+
+export function activarCategoriaAdmin(id: number): Promise<{ ok: true; mensaje?: string }> {
+  return adminApi(`/categorias/${id}/activar`, { method: 'PATCH' });
+}
+
 export function listarAuditoriaAdmin(limit: number): Promise<ListadoAuditoria> {
   return adminApi(`/auditoria?limit=${limit}`);
 }

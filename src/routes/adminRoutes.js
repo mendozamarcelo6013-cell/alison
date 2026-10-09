@@ -1,8 +1,15 @@
 const express = require('express');
 const {
   listarTodos, obtenerPorId, crear, actualizar, eliminar, restaurar,
-  listarCategoriasTodas, estadisticas, listarAuditoria,
+  estadisticas, listarAuditoria,
 } = require('../controllers/adminProductoController');
+const {
+  listar: listarCategorias,
+  crear: crearCategoria,
+  actualizar: actualizarCategoria,
+  desactivar: desactivarCategoria,
+  activar: activarCategoria,
+} = require('../controllers/adminCategoriaController');
 const { login, me } = require('../controllers/authController');
 const { requerirAdmin, rateLimit } = require('../middlewares/auth');
 const { subirImagenes } = require('../services/imagenProducto');
@@ -24,7 +31,11 @@ router.post('/auth/login', rateLimit({
 // Todo lo siguiente exige rol admin.
 router.get('/auth/me', requerirAdmin, me);
 router.get('/stats', requerirAdmin, estadisticas);
-router.get('/categorias', requerirAdmin, listarCategoriasTodas);
+router.get('/categorias', requerirAdmin, listarCategorias);
+router.post('/categorias', requerirAdmin, crearCategoria);
+router.put('/categorias/:id', requerirAdmin, actualizarCategoria);
+router.delete('/categorias/:id', requerirAdmin, desactivarCategoria);
+router.patch('/categorias/:id/activar', requerirAdmin, activarCategoria);
 router.get('/auditoria', requerirAdmin, listarAuditoria);
 router.get('/productos', requerirAdmin, listarTodos);
 router.get('/productos/:id', requerirAdmin, obtenerPorId);

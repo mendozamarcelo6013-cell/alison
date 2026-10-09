@@ -11,7 +11,7 @@ const atributosAdmin = [
 
 const incluirCategoriaAdmin = {
   model: Categoria, as: 'categoria', required: false,
-  attributes: ['id', 'nombre', 'slug'],
+  attributes: ['id', 'nombre', 'slug', 'parent_id', 'activa'],
 };
 
 const incluirImagenesAdmin = {
@@ -93,6 +93,10 @@ function validar(datos, esCreacion = true) {
   }
   if (datos.moneda !== undefined && !/^[A-Z]{3}$/.test(datos.moneda)) {
     errores.push('La moneda debe tener 3 letras (ej. PEN).');
+  }
+  if (datos.categoria_id !== undefined && datos.categoria_id !== null
+    && (!Number.isInteger(datos.categoria_id) || datos.categoria_id < 1)) {
+    errores.push('La categoría seleccionada no es válida.');
   }
   return errores;
 }
@@ -217,9 +221,10 @@ exports.crear = async (req, res) => {
 
     datos.slug = await slugUnico(datos.slug, null, t);
 
-    if (datos.categoria_id) {
+    if (datos.categoria_id !== undefined && datos.categoria_id !== null) {
       const categoria = await Categoria.findByPk(datos.categoria_id, { transaction: t });
       if (!categoria) { await t.rollback(); return res.status(400).json({ ok: false, mensaje: 'La categoría seleccionada no existe.' }); }
+      if (!categoria.activa) { await t.rollback(); return res.status(400).json({ ok: false, mensaje: 'La categoría seleccionada está inactiva.' }); }
     }
 
     const producto = await Producto.scope('todos').create(datos, { transaction: t });
@@ -272,9 +277,13 @@ exports.actualizar = async (req, res) => {
     const errores = validar(datos, false);
     if (errores.length) { await t.rollback(); return res.status(400).json({ ok: false, mensaje: errores.join(' ') }); }
 
-    if (datos.categoria_id) {
+    if (datos.categoria_id !== undefined && datos.categoria_id !== null) {
       const categoria = await Categoria.findByPk(datos.categoria_id, { transaction: t });
       if (!categoria) { await t.rollback(); return res.status(400).json({ ok: false, mensaje: 'La categoría seleccionada no existe.' }); }
+      if (!categoria.activa && Number(producto.categoria_id) !== Number(datos.categoria_id)) {
+        await t.rollback();
+        return res.status(400).json({ ok: false, mensaje: 'La categoría seleccionada está inactiva.' });
+      }
     }
 
     const stockAntes = Number(producto.stock);
@@ -376,10 +385,10 @@ exports.restaurar = async (req, res) => {
 exports.listarCategoriasTodas = async (req, res) => {
   try {
     const categorias = await Categoria.findAll({
-      attributes: ['id', 'nombre', 'slug', 'activa'],
+      attributes: ['id', 'nombre', 'slug', 'descripcion', 'imagen_url', 'activa', 'orden', 'parent_id', 'createdAt', 'updatedAt'],
       order: [['orden', 'ASC'], ['nombre', 'ASC']],
     });
-    return res.json({ ok: true, categorias });
+    return res.json({ ok: true, categorias: categorias.map((categoria) => categoria.toJSON()) });
   } catch (error) {
     console.error('Error admin al listar categorías:', error);
     return res.status(500).json({ ok: false, mensaje: 'No se pudieron obtener las categorías' });

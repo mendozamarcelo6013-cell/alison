@@ -12,6 +12,8 @@
   --gray-dark: #4a5568;
   --text-primary: #1a202c;
   --text-secondary: #4a5568;
+  --font-family: "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
+  --product-card-border: var(--accent-gold);
   --danger: #b42318;
   --success: #16764a;
   --surface: #ffffff;
@@ -34,7 +36,7 @@ body {
     radial-gradient(circle at 88% 18%, rgba(201, 169, 97, 0.12), transparent 27rem),
     linear-gradient(145deg, #0a2540 0%, #173b59 54%, #0b2945 100%);
   color: var(--text-primary);
-  font: 16px/1.6 "Poppins", Arial, sans-serif;
+  font: 16px/1.6 var(--font-family);
 }
 
 body > main { flex: 1; }
@@ -248,9 +250,8 @@ h1, h2, h3 { color: var(--primary-dark); line-height: 1.18; }
   .brand strong { font-size: 0.87rem; }
   .brand-mark { width: 52px; height: 41px; }
   .header-actions { margin-left: auto; }
-  /* Market en móvil: sin Administrar y carrito solo con icono. */
+  /* En móvil, el carrito queda reducido al icono. */
   .header-actions--doble { width: auto; margin-left: auto; display: flex; }
-  .header-actions--doble .admin-link { display: none; }
   .header-actions--doble .cart-link { min-width: 44px; min-height: 44px; justify-content: center; padding: 8px; font-size: 0.74rem; }
   .header-actions--doble .cart-link span { display: none; }
   .header-actions--doble .cart-link svg { width: 22px; height: 22px; }

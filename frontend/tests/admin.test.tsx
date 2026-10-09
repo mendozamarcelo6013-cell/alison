@@ -1,9 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AdminPage } from '../src/pages/AdminPage';
 import { TOKEN_KEY } from '../src/api/admin';
-import { cabecera, crearFetch, llamadaPorUrl, productoDePrueba } from './ayudas';
+import { cabecera, crearFetch, llamadaPorUrl, pintarApp, productoDePrueba } from './ayudas';
 
 const RUTAS = [
   {
@@ -45,7 +44,7 @@ describe('Panel de administración', () => {
     const { fetchStub } = crearFetch(RUTAS);
     vi.stubGlobal('fetch', fetchStub);
 
-    render(<AdminPage />);
+    pintarApp('/horus-admin');
 
     expect(await screen.findByText('Acceso al panel')).toBeInTheDocument();
     expect(screen.getByText(/solo usuarios con rol/i)).toBeInTheDocument();
@@ -58,7 +57,7 @@ describe('Panel de administración', () => {
     const { fetchStub, llamadas } = crearFetch(RUTAS);
     vi.stubGlobal('fetch', fetchStub);
 
-    render(<AdminPage />);
+    pintarApp('/horus-admin');
 
     expect(await screen.findByText('Laptop HP 15')).toBeInTheDocument();
     expect(screen.getByText('Teclado Mecánico')).toBeInTheDocument();
@@ -85,7 +84,7 @@ describe('Panel de administración', () => {
     ]);
     vi.stubGlobal('fetch', fetchStub);
 
-    render(<AdminPage />);
+    pintarApp('/horus-admin');
     await screen.findByText('Acceso al panel');
 
     await userEvent.type(screen.getByLabelText('Email'), 'admin@horus.test');
@@ -112,7 +111,7 @@ describe('Panel de administración', () => {
     ]);
     vi.stubGlobal('fetch', fetchStub);
 
-    render(<AdminPage />);
+    pintarApp('/horus-admin');
     await screen.findByText('Acceso al panel');
 
     await userEvent.type(screen.getByLabelText('Email'), 'mal@horus.test');
@@ -128,7 +127,7 @@ describe('Panel de administración', () => {
     const { fetchStub, llamadas } = crearFetch(RUTAS);
     vi.stubGlobal('fetch', fetchStub);
 
-    render(<AdminPage />);
+    pintarApp('/horus-admin');
     await screen.findByText('Laptop HP 15');
 
     await userEvent.click(screen.getByRole('button', { name: 'Papelera' }));
@@ -144,5 +143,25 @@ describe('Panel de administración', () => {
     );
     expect(borrado).toBeDefined();
     expect(llamadas.some((llamada) => /\?force|definitivo/.test(llamada.url))).toBe(false);
+  });
+
+  it('muestra el CRUD de categorías y envía la jerarquía al backend', async () => {
+    tokenPrueba();
+    const { fetchStub, llamadas } = crearFetch(RUTAS);
+    vi.stubGlobal('fetch', fetchStub);
+
+    pintarApp('/horus-admin');
+    await screen.findByText('Laptop HP 15');
+    await userEvent.click(screen.getByRole('button', { name: /Categorías/ }));
+    expect(screen.getByText('Gestionar categorías')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Nueva categoría/ }));
+    await userEvent.type(screen.getByLabelText('Nombre *'), 'Tecnologías');
+    await userEvent.type(screen.getByLabelText('Slug *'), 'tecnologias');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar categoría' }));
+
+    const crear = llamadas.find((llamada) => llamada.url === '/api/admin/categorias' && llamada.init?.method === 'POST');
+    expect(crear).toBeDefined();
+    expect(JSON.parse(String(crear?.init?.body))).toMatchObject({ nombre: 'Tecnologías', slug: 'tecnologias', parent_id: null });
   });
 });

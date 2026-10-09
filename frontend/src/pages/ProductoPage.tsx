@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { consultarProducto } from '../api/productos';
 import { ERROR_PRODUCTO, mensajeError } from '../api/client';
 import { GaleriaProducto } from '../components/GaleriaProducto';
@@ -6,10 +7,7 @@ import { SiteFooter } from '../components/SiteFooter';
 import { EnlaceCarrito, SiteHeader } from '../components/SiteHeader';
 import { useCart } from '../state/CartContext';
 import { formatearPrecio, textoSeguro } from '../utils/format';
-import { irA } from '../utils/navigation';
 import type { ProductoDetalle } from '../types';
-import '../../../public/css/market-shared.css';
-import '../../../public/css/market-producto.css';
 
 type EstadoProducto =
   | { fase: 'cargando' }
@@ -31,6 +29,7 @@ interface ControlesProps {
 
 function ControlesCompra({ producto }: ControlesProps) {
   const { agregar } = useCart();
+  const navegar = useNavigate();
   const controlaStock = producto.controla_stock !== false;
   const stock = controlaStock ? Math.max(0, Number.parseInt(String(producto.stock), 10) || 0) : 99;
 
@@ -68,7 +67,7 @@ function ControlesCompra({ producto }: ControlesProps) {
         stock,
       });
       setMensaje('Producto agregado. Abriendo tu carrito…');
-      irA('/market-carrito.html');
+      navegar('/market/carrito');
     } catch (error) {
       setMensaje(mensajeError(error, 'No se pudo agregar el producto al carrito.'));
     }
@@ -117,12 +116,16 @@ function ControlesCompra({ producto }: ControlesProps) {
 
 export function ProductoPage() {
   const { unidades } = useCart();
+  const { slug: slugParam } = useParams<{ slug: string }>();
   const [estado, setEstado] = useState<EstadoProducto>({ fase: 'cargando' });
   const [producto, setProducto] = useState<ProductoDetalle | null>(null);
 
   useEffect(() => {
     let vigente = true;
-    const slug = new URLSearchParams(window.location.search).get('slug')?.trim();
+    const slug = slugParam?.trim();
+
+    setEstado({ fase: 'cargando' });
+    setProducto(null);
 
     if (!slug) {
       setEstado({
@@ -160,7 +163,7 @@ export function ProductoPage() {
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [slugParam]);
 
   const imagenes = producto && Array.isArray(producto.imagenes) ? producto.imagenes : [];
   const imagenesOrdenadas = [...imagenes].sort((a, b) => {
@@ -176,7 +179,7 @@ export function ProductoPage() {
       <SiteHeader>
         <div className="header-actions">
           <EnlaceCarrito unidades={unidades} />
-          <a className="back-link" href="/market.html">← Volver al Market</a>
+          <Link className="back-link" to="/market">← Volver al Market</Link>
         </div>
       </SiteHeader>
 

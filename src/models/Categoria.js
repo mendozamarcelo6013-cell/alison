@@ -36,6 +36,11 @@ const Categoria = sequelize.define('Categoria', {
     allowNull: false,
     defaultValue: 0,
   },
+  parent_id: {
+    type: DataTypes.INTEGER.UNSIGNED,
+    allowNull: true,
+    references: { model: 'categorias', key: 'id' },
+  },
 }, {
   tableName: 'categorias',
   timestamps: true,

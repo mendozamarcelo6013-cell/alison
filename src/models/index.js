@@ -20,6 +20,8 @@ Direccion.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
 Direccion.hasMany(Pedido, { foreignKey: 'direccion_id', as: 'pedidos' });
 
 Categoria.hasMany(Producto, { foreignKey: 'categoria_id', as: 'productos' });
+Categoria.belongsTo(Categoria, { foreignKey: 'parent_id', as: 'padre' });
+Categoria.hasMany(Categoria, { foreignKey: 'parent_id', as: 'hijas' });
 
 Producto.belongsTo(Categoria, { foreignKey: 'categoria_id', as: 'categoria' });
 Producto.hasMany(ProductoImagen, { foreignKey: 'producto_id', as: 'imagenes' });

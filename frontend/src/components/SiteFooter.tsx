@@ -1,17 +1,18 @@
+import { Link } from 'react-router-dom';
 import logoHorus from '../../../public/assets/logo-horus.png';
 
-/** Pie común de las cuatro páginas de tienda. */
+/** Pie común de las páginas de tienda. */
 export function SiteFooter() {
   return (
     <footer className="market-footer">
       <div className="market-footer-content">
         <div>
-          <a className="footer-brand" href="/market.html">
+          <Link className="footer-brand" to="/market">
             <span className="brand-mark" aria-hidden="true">
               <img src={logoHorus} alt="" />
             </span>
             {' '}Horus Group
-          </a>
+          </Link>
           <p className="footer-copy">
             Soluciones tecnológicas y productos seleccionados para tus proyectos.
           </p>
@@ -19,8 +20,8 @@ export function SiteFooter() {
         <div>
           <h2 className="footer-heading">Market</h2>
           <nav className="footer-links" aria-label="Enlaces del Market">
-            <a href="/market.html">Catálogo</a>
-            <a href="/market-carrito.html">Mi carrito</a>
+            <Link to="/market">Catálogo</Link>
+            <Link to="/market/carrito">Mi carrito</Link>
           </nav>
         </div>
         <div>

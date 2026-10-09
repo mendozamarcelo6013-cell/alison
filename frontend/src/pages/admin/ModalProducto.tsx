@@ -10,6 +10,7 @@ import {
 } from '../../api/admin';
 import { mensajeError } from '../../api/client';
 import type { Categoria, ProductoAdmin, ProductoImagen } from '../../types';
+import { categoriasParaSelector } from '../../utils/categorias';
 
 /** Límites del servidor: 12 archivos y PRODUCT_IMAGE_MAX_MB=5 (ver UI original). */
 const MAX_ARCHIVOS = 12;
@@ -50,6 +51,7 @@ export function ModalProducto({ producto, categorias, onCerrar, onGuardado, toas
   const [activo, setActivo] = useState(producto ? Boolean(producto.activo) : true);
   const [destacado, setDestacado] = useState(Boolean(producto?.destacado));
   const [controlaStock, setControlaStock] = useState(producto ? producto.controla_stock !== false : true);
+  const opcionesCategoria = categoriasParaSelector(categorias);
 
   const [imagenesExistentes, setImagenesExistentes] = useState<ProductoImagen[]>(producto?.imagenes ?? []);
   const [imagenesNuevas, setImagenesNuevas] = useState<EntradaImagenNueva[]>([]);
@@ -240,9 +242,13 @@ export function ModalProducto({ producto, categorias, onCerrar, onGuardado, toas
             Categoría
             <select id="f-categoria" value={categoriaId} onChange={(evento) => setCategoriaId(evento.target.value)}>
               <option value="">— Sin categoría —</option>
-              {categorias.map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.nombre}
+              {opcionesCategoria.map(({ categoria, nivel }) => (
+                <option
+                  key={categoria.id}
+                  value={categoria.id}
+                  disabled={!categoria.activa && categoria.id !== producto?.categoria_id}
+                >
+                  {`${'\u00a0\u00a0'.repeat(nivel)}${categoria.nombre}${categoria.activa ? '' : ' (inactiva)'}`}
                 </option>
               ))}
             </select>

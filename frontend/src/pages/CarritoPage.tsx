@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { consultarProducto } from '../api/productos';
 import { SiteFooter } from '../components/SiteFooter';
 import { SiteHeader } from '../components/SiteHeader';
@@ -6,10 +7,7 @@ import { ProductoImagen } from '../components/ProductoImagen';
 import { useCart } from '../state/CartContext';
 import { leerCarrito } from '../state/cart';
 import { precioNumero, precioTexto, textoSeguro } from '../utils/format';
-import { irA } from '../utils/navigation';
 import type { ItemCarrito as ItemAlmacenado, ProductoDetalle } from '../types';
-import '../../../public/css/market-shared.css';
-import '../../../public/css/market-carrito.css';
 
 type Registro =
   | { item: ItemAlmacenado; estado: 'no-disponible' | 'error'; producto?: undefined; stock?: undefined }
@@ -135,6 +133,7 @@ function ElementoCarrito({ registro, onCambiar, onEliminar }: PropsElemento) {
 
 export function CarritoPage() {
   const { actualizar, eliminar, unidades } = useCart();
+  const navegar = useNavigate();
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [fase, setFase] = useState<FaseCarrito>('cargando');
   const [errorValidacion, setErrorValidacion] = useState(false);
@@ -193,7 +192,7 @@ export function CarritoPage() {
     <>
       <SiteHeader>
         <div className="header-actions">
-          <a className="back-link header-action-button" href="/market.html">← Seguir comprando</a>
+          <Link className="back-link header-action-button" to="/market">← Seguir comprando</Link>
         </div>
       </SiteHeader>
 
@@ -217,7 +216,7 @@ export function CarritoPage() {
         <section id="empty-state" className="empty-state" hidden={fase !== 'vacio'}>
           <h2>Tu carrito está vacío</h2>
           <p>Agrega productos desde el catálogo para verlos aquí.</p>
-          <a href="/market.html" className="button-primary">Volver al Market</a>
+          <Link to="/market" className="button-primary">Volver al Market</Link>
         </section>
 
         <section id="cart-content" className="cart-layout" hidden={fase !== 'listo'}>
@@ -246,7 +245,7 @@ export function CarritoPage() {
               className="checkout-button"
               disabled={fase !== 'listo' || checkoutBloqueado}
               title={checkoutBloqueado ? 'Elimina o actualiza los productos no disponibles para continuar.' : ''}
-              onClick={() => irA('/market-checkout.html')}
+              onClick={() => navegar('/market/checkout')}
             >
               Finalizar compra
             </button>

@@ -17,13 +17,13 @@ Para el hosting final, el archivo `render.yaml` sirve como referencia del servic
 - En producción el servidor no inicia sin `ADMIN_SESSION_SECRET` de al menos 32 caracteres. Cambiarlo invalida los tokens administrativos existentes.
 - `ADMIN_PASSWORD` es solo la contraseña inicial usada por `npm run db:seed:admin`; no es el mismo secreto que `ADMIN_SESSION_SECRET`.
 
-## Panel admin (`/admin.html`)
+## Panel admin (`/horus-admin`)
 
 El panel exige login con usuario de rol `admin` (token Bearer, sin cookies: no hay superficie CSRF). Sin token, toda `/api/admin/*` responde 401/403.
 
 1. Para pruebas, define `ADMIN_SESSION_SECRET` en tu `.env` o en Clever Cloud. Para producción, usa un secreto nuevo generado aleatoriamente; el servidor no arranca sin él.
 2. Crea el primer admin: `ADMIN_EMAIL=... ADMIN_PASSWORD=...(mín. 10 caracteres) npm run db:seed:admin`.
-3. Abre `/admin.html`, inicia sesión y gestiona el catálogo. El borrado es solo papelera (restaurable); no hay borrado definitivo por HTTP.
+3. Abre `/horus-admin` (las URLs antiguas `/admin` y `/admin.html` redirigen ahí), inicia sesión y gestiona el catálogo. El borrado es solo papelera (restaurable); no hay borrado definitivo por HTTP.
 4. Todo cambio de stock exige motivo y genera `MovimientoStock`; toda mutación queda en `auditoria_admin` (visible en la pestaña Actividad).
 
 ### Imágenes de productos
@@ -46,22 +46,47 @@ El rate-limit es en memoria **por instancia** (`LOGIN_RATE_MAX`, `ADMIN_RATE_MAX
 
 `npm run db:reset` elimina únicamente las tablas creadas por las migraciones de este laboratorio y las vuelve a crear con sus datos de muestra. Úsalo solo sobre la base de pruebas.
 
-## Frontend (React + TypeScript + Vite)
+## Frontend (React + TypeScript + Vite — SPA)
 
-La carpeta `frontend/` contiene la migración del frontend a React 19 + TypeScript + Vite, con los mismos cinco documentos (`market.html`, `market-producto.html`, `market-carrito.html`, `market-checkout.html`, `admin.html`). Ver [`frontend/README.md`](frontend/README.md).
+La carpeta `frontend/` contiene la migración del frontend a una SPA con React 19,
+React Router 7, TypeScript y Vite: un único `index.html` y un único punto de
+montaje (`src/main.tsx`) para todas las rutas.
+
+| Ruta | Vista |
+| --- | --- |
+| `/market` | Catálogo |
+| `/market/producto/:slug` | Detalle de producto |
+| `/market/carrito` | Carrito |
+| `/market/checkout` | Finalizar compra |
+| `/horus-admin` | Panel de administración |
+| `*` | Página no encontrada |
+
+Las URLs antiguas del sitio MPA siguen funcionando: `src/app.js` responde 302
+desde `/market.html`, `/market-producto.html?slug=…`, `/market-carrito.html`,
+`/market-checkout.html`, `/admin` y `/admin.html` hacia sus rutas nuevas. Ver
+[`frontend/README.md`](frontend/README.md).
 
 ```bash
-npm run build:frontend   # compila frontend/dist
-npm run test:frontend    # suites Vitest
+npm run build:frontend   # compila frontend/dist (index.html + /static)
+npm run test:frontend    # suites Vitest (7 archivos)
 npm run dev:frontend     # Vite con proxy hacia Express
+npm run test:unit        # tests del panel sin base de datos
 ```
 
-`src/app.js` sirve `frontend/dist` antes que `public/`. Si `dist` no existe, el servidor responde el frontend vanilla original (vuelta atrás sin redesplegar el backend). El backend no cambia: mismas rutas, controladores, validaciones y auth Bearer.
+`src/app.js` sirve `frontend/dist` antes que `public/` y añade el fallback SPA:
+cualquier GET/HEAD de navegación que no sea `/api`, `/uploads`, un fichero con
+extensión o una respuesta con cuerpo devuelve el shell de la SPA
+(`Cache-Control: no-cache`, y `no-store`/`noindex` en `/horus-admin`). Si `dist` no
+existe, el servidor responde el frontend vanilla original (vuelta atrás sin
+redesplegar el backend). El backend no cambia: mismas rutas, controladores,
+validaciones y auth Bearer.
 
 ## Alcance de esta fase
 
 - Usuarios y direcciones.
 - Catálogo: categorías, productos, imágenes y stock.
+- Categorías jerárquicas: `categorias.parent_id`, filtros por descendientes y CRUD
+  administrativo con desactivación lógica.
 - Pedidos con ítems y valores históricos.
 - Pagos manuales, comprobantes y envíos.
 - Auditoría de movimientos de inventario.

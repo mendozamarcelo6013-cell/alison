@@ -22,7 +22,7 @@ const incluirCategoria = {
   as: 'categoria',
   required: false,
   where: { activa: true },
-  attributes: ['id', 'nombre', 'slug'],
+  attributes: ['id', 'nombre', 'slug', 'parent_id'],
 };
 
 const incluirImagenes = {

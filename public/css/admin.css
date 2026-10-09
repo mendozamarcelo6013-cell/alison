@@ -17,6 +17,7 @@
   --bg: #eef2f6;
   --danger: #b42318;
   --success: #16764a;
+  --font-family: "Poppins", -apple-system, BlinkMacSystemFont, sans-serif;
   --radius: 14px;
   --shadow: 0 12px 28px rgba(3, 15, 27, 0.13);
 }
@@ -25,7 +26,7 @@ html { scroll-behavior: smooth; }
 ::selection { background: var(--accent-gold); color: var(--primary-dark); }
 body {
   margin: 0;
-  font-family: Poppins, Arial, sans-serif;
+  font-family: var(--font-family);
   font-size: 16px;
   line-height: 1.6;
   background:
@@ -214,6 +215,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .help-text code { background: rgba(255,255,255,0.1); border: 1px solid rgba(201,169,97,0.5); color: var(--accent-light); padding: 1px 6px; border-radius: 6px; }
 .activity-card { margin-top: 22px; }
 .activity-card h2 { margin: 0; font-size: 1.1rem; }
+.category-admin-panel { overflow: visible; }
+.category-admin-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px; border-bottom: 1px solid var(--line); }
+.category-admin-head h2 { margin: 0 0 5px; color: var(--primary-dark); }
+.category-admin-head p { margin: 0; }
+.admin-category-list { display: grid; gap: 10px; padding: 18px; }
+.admin-category-node { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--white); }
+.admin-category-level-0 { border-color: rgba(201, 169, 97, 0.68); }
+.admin-category-row { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 16px; }
+.admin-category-row strong { display: block; color: var(--primary-dark); }
+.admin-category-meta { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 0.75rem; }
+.admin-category-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.admin-category-children { display: grid; gap: 8px; margin: 0 12px 12px 28px; padding-left: 12px; border-left: 2px solid rgba(201, 169, 97, 0.55); }
+.admin-category-children .admin-category-row { min-height: 54px; padding: 10px 12px; }
+#category-form { padding: 18px 20px 8px; }
 
 /* ===== Modales ===== */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(10, 25, 41, 0.62); backdrop-filter: blur(2px); display: grid; place-items: center; padding: 18px; z-index: 100; }
@@ -274,6 +289,8 @@ label.check input { width: auto; accent-color: var(--primary-medium); }
   .wp-content { margin-left: 0; padding: 26px 22px 56px; }
   .page-head { flex-direction: column; align-items: flex-start; }
   .form-grid { grid-template-columns: 1fr; }
+  .category-admin-head, .admin-category-row { align-items: stretch; flex-direction: column; }
+  .admin-category-actions { justify-content: flex-start; }
   .wp-topbar { min-height: 72px; flex-wrap: wrap; }
 }
 @media (max-width: 560px) {

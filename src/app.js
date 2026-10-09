@@ -23,6 +23,15 @@ function parseTrustProxy(valor) {
   if (valor === 'false') return false;
   return valor;
 }
+
+function esRutaPanel(ruta) {
+  return ruta.endsWith('admin.html')
+    || ruta === '/admin'
+    || ruta.startsWith('/admin/')
+    || ruta === '/horus-admin'
+    || ruta.startsWith('/horus-admin/');
+}
+
 app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 app.disable('x-powered-by');
 
@@ -39,7 +48,7 @@ app.use((req, res, next) => {
     res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
   // CSP: la tienda usa Google Fonts; el panel no necesita scripts externos.
-  if (req.path.startsWith('/admin')) {
+  if (esRutaPanel(req.path)) {
     res.set('Content-Security-Policy', "default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'");
   }
   return next();
@@ -58,10 +67,10 @@ app.use('/api/admin', rateLimit({
   max: Number(process.env.ADMIN_RATE_MAX || 180),
 }));
 
-// admin.html es la pantalla de login + panel: el HTML es público como wp-login.php,
+// /horus-admin es la pantalla de login + panel: el HTML es público como wp-login.php,
 // pero ningún dato ni mutación responde sin token de rol admin.
-function cabecerasPanel(res, filePath) {
-  if (filePath.endsWith('admin.html')) {
+function cabecerasPanel(res, rutaOArchivo) {
+  if (esRutaPanel(rutaOArchivo)) {
     res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' });
   }
 }
@@ -71,7 +80,37 @@ function cabecerasPanel(res, filePath) {
 // 2) public/ queda como respaldo: permite deshacer la migración sin tocar el
 //    backend y sigue aportando /assets y /uploads ya publicados.
 const directorioFrontend = path.join(__dirname, '../frontend/dist');
-if (fs.existsSync(directorioFrontend)) {
+const raizSpa = path.join(directorioFrontend, 'index.html');
+const buildFrontendDisponible = fs.existsSync(raizSpa);
+
+// Extensiones que siempre son recurso estático: nunca deben devolver el shell SPA.
+const EXTENSIONES_RECURSO = new Set([
+  '.js', '.mjs', '.cjs', '.map', '.css', '.png', '.jpg', '.jpeg', '.webp', '.avif',
+  '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.otf', '.txt', '.xml', '.pdf',
+  '.zip', '.json',
+]);
+
+if (buildFrontendDisponible) {
+  // URLs antiguas del MPA -> rutas SPA equivalentes. Se resuelven en el servidor
+  // para que /market.html no sirva el HTML legado que sigue en public/.
+  app.get(
+    ['/market.html', '/market-carrito.html', '/market-checkout.html', '/admin.html'],
+    (req, res) => {
+      const destinos = {
+        '/market.html': '/market',
+        '/market-carrito.html': '/market/carrito',
+        '/market-checkout.html': '/market/checkout',
+        '/admin.html': '/horus-admin',
+      };
+      return res.redirect(302, destinos[req.path]);
+    },
+  );
+  app.get(['/admin', '/admin/'], (req, res) => res.redirect(302, '/horus-admin'));
+  app.get('/market-producto.html', (req, res) => {
+    const slug = typeof req.query.slug === 'string' ? req.query.slug.trim() : '';
+    return res.redirect(302, slug ? `/market/producto/${encodeURIComponent(slug)}` : '/market');
+  });
+
   app.use(express.static(directorioFrontend, { setHeaders: cabecerasPanel }));
 }
 app.use(express.static(path.join(__dirname, '../public'), { setHeaders: cabecerasPanel }));
@@ -97,8 +136,25 @@ app.use('/api/pedidos', pedidoRoutes);
 app.use('/api/pagos', pagoRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Fallback SPA: toda ruta de navegación responde index.html (recarga directa de
+// /market/producto/:slug, /horus-admin, etc.). Nunca intercepta la API, /uploads ni los
+// recursos estáticos, que siguen respondiendo JSON 404 o su propio archivo.
 app.use((req, res) => {
-  res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
+  const esDescarga = req.method === 'GET' || req.method === 'HEAD';
+  const esApi = req.path === '/api' || req.path.startsWith('/api/');
+  const esSubida = req.path === '/uploads' || req.path.startsWith('/uploads/');
+  const esRecurso = EXTENSIONES_RECURSO.has(path.extname(req.path).toLowerCase());
+
+  if (esDescarga && buildFrontendDisponible && !esApi && !esSubida && !esRecurso) {
+    cabecerasPanel(res, req.path);
+    if (!esRutaPanel(req.path)) {
+      // El shell referencia assets con hash: hay que revalidar en cada visita.
+      res.set('Cache-Control', 'no-cache');
+    }
+    return res.sendFile(raizSpa);
+  }
+
+  return res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
 });
 
 // eslint-disable-next-line no-unused-vars

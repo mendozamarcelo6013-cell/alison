@@ -1,12 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CheckoutPage } from '../src/pages/CheckoutPage';
-import { CartProvider } from '../src/state/CartContext';
 import { CART_KEY } from '../src/state/cart';
-import { cuerpoJson, crearFetch, llamadaPorUrl, productoDePrueba } from './ayudas';
+import { cuerpoJson, crearFetch, llamadaPorUrl, pintarApp, productoDePrueba } from './ayudas';
 import type { PayloadPedido } from '../src/types';
 
+// `irA` sólo se usa para saltar al proveedor de pago externo (navegación completa).
 vi.mock('../src/utils/navigation', () => ({ irA: vi.fn() }));
 
 const CLAVE_ULTIMO_PEDIDO = 'horus_market_last_order';
@@ -22,11 +21,7 @@ const PEDIDO = {
 };
 
 function pintar() {
-  return render(
-    <CartProvider>
-      <CheckoutPage />
-    </CartProvider>,
-  );
+  return pintarApp('/market/checkout');
 }
 
 async function rellenarFormulario() {

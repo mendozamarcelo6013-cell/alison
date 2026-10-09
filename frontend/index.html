@@ -3,11 +3,20 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="0; url=/market.html">
+    <meta name="description" content="Catálogo de productos de Horus Market.">
     <title>Market | Horus Group</title>
-    <script>window.location.replace('/market.html');</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../public/css/market-shared.css" media="not all" data-hojas="compartido">
+    <link rel="stylesheet" href="../public/css/market.css" media="not all" data-hojas="catalogo">
+    <link rel="stylesheet" href="../public/css/market-producto.css" media="not all" data-hojas="producto">
+    <link rel="stylesheet" href="../public/css/market-carrito.css" media="not all" data-hojas="carrito">
+    <link rel="stylesheet" href="../public/css/market-checkout.css" media="not all" data-hojas="checkout">
+    <link rel="stylesheet" href="../public/css/admin.css" media="not all" data-hojas="admin">
   </head>
   <body>
-    <p><a href="/market.html">Ir al catálogo de Horus Market</a></p>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

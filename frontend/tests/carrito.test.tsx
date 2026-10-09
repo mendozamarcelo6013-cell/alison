@@ -1,19 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CarritoPage } from '../src/pages/CarritoPage';
-import { CartProvider } from '../src/state/CartContext';
 import { CART_KEY, guardarCarrito, normalizarCarrito } from '../src/state/cart';
-import { crearFetch, productoDePrueba } from './ayudas';
-
-vi.mock('../src/utils/navigation', () => ({ irA: vi.fn() }));
+import { crearFetch, pintarApp, productoDePrueba } from './ayudas';
 
 function pintar() {
-  return render(
-    <CartProvider>
-      <CarritoPage />
-    </CartProvider>,
-  );
+  return pintarApp('/market/carrito');
 }
 
 function sembrar(items: unknown) {

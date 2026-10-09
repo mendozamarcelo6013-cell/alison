@@ -1,31 +1,17 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProductoPage } from '../src/pages/ProductoPage';
-import { CartProvider } from '../src/state/CartContext';
 import { CART_KEY } from '../src/state/cart';
-import { irA } from '../src/utils/navigation';
-import { crearFetch, productoDePrueba } from './ayudas';
+import { crearFetch, pintarApp, productoDePrueba, ubicacionActual } from './ayudas';
 
-vi.mock('../src/utils/navigation', () => ({ irA: vi.fn() }));
-
-function pintar() {
-  return render(
-    <CartProvider>
-      <ProductoPage />
-    </CartProvider>,
-  );
-}
-
-function situar(ruta: string) {
-  window.history.replaceState({}, '', ruta);
+function pintar(ruta = '/market/producto/laptop-hp-15') {
+  return pintarApp(ruta);
 }
 
 describe('Detalle de producto', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    situar('/market-producto.html?slug=laptop-hp-15');
   });
 
   it('consulta el producto por slug y pinta sus datos', async () => {
@@ -57,17 +43,18 @@ describe('Detalle de producto', () => {
     expect(JSON.parse(localStorage.getItem(CART_KEY) || '[]')).toEqual([
       { producto_id: 1, slug: 'laptop-hp-15', cantidad: 2 },
     ]);
-    expect(await screen.findByText('Producto agregado. Abriendo tu carrito…')).toBeInTheDocument();
+    expect(ubicacionActual()).toBe('/market/carrito');
+
+    // El carrito sigue vivo tras el cambio de ruta: la SPA no recarga el documento.
+    expect(await screen.findByText('Laptop HP 15')).toBeInTheDocument();
     expect(document.querySelector('[data-cart-count]')?.textContent).toBe('2');
-    expect(irA).toHaveBeenCalledWith('/market-carrito.html');
   });
 
   it('ofrece el mensaje de producto inválido cuando falta el slug', async () => {
-    situar('/market-producto.html');
     const { fetchStub } = crearFetch();
     vi.stubGlobal('fetch', fetchStub);
 
-    pintar();
+    pintar('/market/producto');
 
     expect(await screen.findByText('Producto inválido')).toBeInTheDocument();
     expect(screen.getByText(/No se indicó el producto/)).toBeInTheDocument();

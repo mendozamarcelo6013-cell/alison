@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   TOKEN_KEY,
   actualizarProductoAdmin,
@@ -23,10 +24,12 @@ import { ModalDetalle } from './admin/ModalDetalle';
 import { ModalConfirmacion } from './admin/ModalConfirmacion';
 import { ModalLogin } from './admin/ModalLogin';
 import { ModalProducto } from './admin/ModalProducto';
+import { CategoriasAdminPanel } from './admin/CategoriasAdminPanel';
 import { TablaProductos } from './admin/TablaProductos';
 import type { Categoria, EstadisticasAdmin, Paginacion, ProductoAdmin, RegistroAuditoria } from '../types';
 import logoHorus from '../../../public/assets/logo-horus.png';
-import '../../../public/css/admin.css';
+// admin.css se enlaza en index.html y se activa por ruta (media="all"): el CSP
+// del panel sólo admite `style-src 'self'` y no permite <style> creados por script.
 
 const POR_PAGINA = 10;
 
@@ -88,6 +91,7 @@ export function AdminPage() {
   const [sidebarAbierta, setSidebarAbierta] = useState(false);
   const [submenuAbierto, setSubmenuAbierto] = useState(true);
   const [accionBulk, setAccionBulk] = useState('');
+  const [vista, setVista] = useState<'productos' | 'categorias'>('productos');
 
   const categoriasRef = useRef<Categoria[]>([]);
   const avisarSesionRef = useRef<() => void>(() => {});
@@ -341,6 +345,7 @@ export function AdminPage() {
       setRondaActividad((n) => n + 1);
       return;
     }
+    setVista('productos');
     setActividadVisible(false);
     setFiltroEstado(destino);
     setPagina(1);
@@ -389,7 +394,7 @@ export function AdminPage() {
           >
             ☰
           </button>
-          <a className="wp-brand" href="admin.html" aria-label="Horus Market, administración">
+          <Link className="wp-brand" to="/horus-admin" aria-label="Horus Market, administración">
             <span className="wp-logo" aria-hidden="true">
               <img src={logoHorus} alt="" />
             </span>
@@ -397,12 +402,12 @@ export function AdminPage() {
               <strong>Horus Group</strong>
               <span>Market · Panel <em>Admin</em></span>
             </span>
-          </a>
+          </Link>
         </div>
         <div className="wp-topbar-right">
           <span id="api-status" className={claseApi}>{etiquetaApi}</span>
           <span id="user-email" className="topbar-user" hidden={!autenticado}>{emailUsuario}</span>
-          <a className="topbar-link" href="market.html" target="_blank" rel="noopener">↗ Ver tienda</a>
+          <a className="topbar-link" href="/market" target="_blank" rel="noopener">↗ Ver tienda</a>
           <button id="btn-logout" className="topbar-link topbar-btn" type="button" hidden={!autenticado} onClick={cerrarSesion}>
             Cerrar sesión
           </button>
@@ -414,7 +419,7 @@ export function AdminPage() {
         <aside id="sidebar" className={`wp-sidebar${sidebarAbierta ? ' open' : ''}`}>
           <p className="menu-caption">Panel de control</p>
           <nav aria-label="Menú de administración">
-            <a href="admin.html" className="menu-item active"><span className="dashicon">◈</span> Escritorio</a>
+            <Link to="/horus-admin" className="menu-item active"><span className="dashicon">◈</span> Escritorio</Link>
             <button
               type="button"
               className={`menu-group${submenuAbierto ? ' is-open' : ''}`}
@@ -457,9 +462,13 @@ export function AdminPage() {
                 Borradores
               </a>
             </div>
-            <a href="market.html" className="menu-item">
+            <button
+              type="button"
+              className={`menu-item${vista === 'categorias' ? ' active' : ''}`}
+              onClick={() => { setVista('categorias'); setActividadVisible(false); }}
+            >
               <span className="dashicon">◉</span> Categorías <small id="cat-count">{categorias.length ? `(${categorias.length})` : ''}</small>
-            </a>
+            </button>
             <a
               href="#"
               className="menu-item"
@@ -488,7 +497,7 @@ export function AdminPage() {
             <a className="menu-item muted" href="/api/admin/stats" target="_blank" rel="noopener">
               <span className="dashicon">≋</span> API / Stats
             </a>
-            <a className="menu-item muted" href="market-carrito.html"><span className="dashicon">☷</span> Ver carrito</a>
+            <Link className="menu-item muted" to="/market/carrito"><span className="dashicon">☷</span> Ver carrito</Link>
           </nav>
           <div className="sidebar-foot">
             <p>Horus Group · Market Lab</p>
@@ -501,22 +510,26 @@ export function AdminPage() {
             <div>
               <p className="eyebrow">Horus Group · Market</p>
               <h1 id="page-title">
-                {TITULOS[filtro]}{' '}
-                <span className="title-action" onClick={abrirNuevo}>Añadir nuevo</span>
+                {vista === 'categorias' ? 'Categorías' : TITULOS[filtro]}{' '}
+                {vista === 'productos' ? <span className="title-action" onClick={abrirNuevo}>Añadir nuevo</span> : null}
               </h1>
-              <p className="page-sub" id="page-sub">Gestiona el catálogo de la tienda desde este panel.</p>
+              <p className="page-sub" id="page-sub">
+                {vista === 'categorias' ? 'Gestiona la jerarquía visible del catálogo.' : 'Gestiona el catálogo de la tienda desde este panel.'}
+              </p>
             </div>
             <div className="page-actions">
               <button id="btn-refresh" className="btn btn-ghost" type="button" onClick={() => void cargarTodo()}>
                 ⟳ Recargar
               </button>
-              <button id="btn-new" className="btn btn-primary" type="button" onClick={abrirNuevo}>
-                ＋ Añadir producto
-              </button>
+              {vista === 'productos' ? (
+                <button id="btn-new" className="btn btn-primary" type="button" onClick={abrirNuevo}>
+                  ＋ Añadir producto
+                </button>
+              ) : null}
             </div>
           </div>
 
-          <section className="stats-grid" aria-label="Resumen">
+          <section className="stats-grid" aria-label="Resumen" hidden={vista !== 'productos'}>
             <article className="stat-card">
               <span className="stat-label">Total</span>
               <strong id="stat-total">{stats.total ?? '—'}</strong>
@@ -544,7 +557,7 @@ export function AdminPage() {
             </article>
           </section>
 
-          <section className="wp-card">
+          <section className="wp-card" hidden={vista !== 'productos'}>
             <div className="tablenav top">
               <ul className="subsubsub" id="filter-links">
                 {FILTROS.map((valor, indice) => (
@@ -655,11 +668,15 @@ export function AdminPage() {
             </div>
           </section>
 
-          <p className="help-text">
+          <p className="help-text" hidden={vista !== 'productos'}>
             El borrado envía a papelera (despublica) y puede restaurarse. No existe borrado definitivo
             por HTTP: la purga se hace en base de datos con respaldo. Todo cambio de stock exige motivo
             y genera un movimiento de inventario.
           </p>
+
+          {vista === 'categorias' ? (
+            <CategoriasAdminPanel categorias={categorias} onRecargar={cargarTodo} toast={toast} />
+          ) : null}
 
           <section
             ref={seccionActividadRef}
