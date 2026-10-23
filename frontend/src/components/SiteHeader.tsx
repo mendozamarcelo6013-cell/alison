@@ -17,7 +17,7 @@ export function SiteHeader({ etiquetaMarca, children }: Props) {
             <img src={logoHorus} alt="" />
           </span>
           <span>
-            <strong>Horus Group</strong>
+            <strong>HORUS GROUP SRL</strong>
             <span className="brand-section">Market</span>
           </span>
         </Link>

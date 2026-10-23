@@ -10,6 +10,8 @@ import {
   listarAuditoriaAdmin,
   listarCategoriasAdmin,
   listarProductosAdmin,
+  listarPedidosAdmin,
+  actualizarEstadoRecojoAdmin,
   obtenerEstadisticas,
   obtenerProductoAdmin,
   restaurarProducto,
@@ -26,7 +28,7 @@ import { ModalLogin } from './admin/ModalLogin';
 import { ModalProducto } from './admin/ModalProducto';
 import { CategoriasAdminPanel } from './admin/CategoriasAdminPanel';
 import { TablaProductos } from './admin/TablaProductos';
-import type { Categoria, EstadisticasAdmin, Paginacion, ProductoAdmin, RegistroAuditoria } from '../types';
+import { ESTADOS_RECOJO, ETIQUETAS_ESTADO_RECOJO, type Categoria, type EstadisticasAdmin, type Paginacion, type ProductoAdmin, type RegistroAuditoria, type PedidoAdmin, type EstadoRecojo } from '../types';
 import logoHorus from '../../../public/assets/logo-horus.png';
 // admin.css se enlaza en index.html y se activa por ruta (media="all"): el CSP
 // del panel sólo admite `style-src 'self'` y no permite <style> creados por script.
@@ -68,6 +70,8 @@ export function AdminPage() {
   const [paginacion, setPaginacion] = useState<Paginacion>(PAGINACION_VACIA);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [stats, setStats] = useState<EstadisticasAdmin>({});
+  const [pedidos, setPedidos] = useState<PedidoAdmin[]>([]);
+  const [pedidosCargando, setPedidosCargando] = useState(false);
   const [datosListos, setDatosListos] = useState(false);
 
   const [filtro, setFiltroEstado] = useState<Filtro>('todos');
@@ -91,7 +95,7 @@ export function AdminPage() {
   const [sidebarAbierta, setSidebarAbierta] = useState(false);
   const [submenuAbierto, setSubmenuAbierto] = useState(true);
   const [accionBulk, setAccionBulk] = useState('');
-  const [vista, setVista] = useState<'productos' | 'categorias'>('productos');
+  const [vista, setVista] = useState<'productos' | 'categorias' | 'pedidos'>('productos');
 
   const categoriasRef = useRef<Categoria[]>([]);
   const avisarSesionRef = useRef<() => void>(() => {});
@@ -170,6 +174,32 @@ export function AdminPage() {
     if (!autenticado) return;
     void cargarTodo();
   }, [autenticado, cargarTodo]);
+
+  const cargarPedidos = useCallback(async () => {
+    setPedidosCargando(true);
+    try {
+      const respuesta = await listarPedidosAdmin();
+      setPedidos(respuesta.pedidos || []);
+    } catch (error) {
+      toast(mensajeError(error, 'No se pudieron cargar los pedidos.'), 'error');
+    } finally {
+      setPedidosCargando(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (autenticado && vista === 'pedidos') void cargarPedidos();
+  }, [autenticado, vista, cargarPedidos]);
+
+  const cambiarEstadoRecojo = async (numero: string, estado: EstadoRecojo) => {
+    try {
+      await actualizarEstadoRecojoAdmin(numero, estado);
+      setPedidos((anteriores) => anteriores.map((pedido) => pedido.numero_pedido === numero ? { ...pedido, estado_recojo: estado } : pedido));
+      toast(`Estado del pedido ${numero} actualizado.`, 'ok');
+    } catch (error) {
+      toast(mensajeError(error, 'No se pudo actualizar el estado.'), 'error');
+    }
+  };
 
   /* ---- Búsqueda con retardo de 350 ms ---- */
   useEffect(() => {
@@ -399,7 +429,7 @@ export function AdminPage() {
               <img src={logoHorus} alt="" />
             </span>
             <span className="brand-text">
-              <strong>Horus Group</strong>
+              <strong>HORUS GROUP SRL</strong>
               <span>Market · Panel <em>Admin</em></span>
             </span>
           </Link>
@@ -420,6 +450,13 @@ export function AdminPage() {
           <p className="menu-caption">Panel de control</p>
           <nav aria-label="Menú de administración">
             <Link to="/horus-admin" className="menu-item active"><span className="dashicon">◈</span> Escritorio</Link>
+            <button
+              type="button"
+              className={`menu-item${vista === 'pedidos' ? ' active' : ''}`}
+              onClick={() => { setVista('pedidos'); setActividadVisible(false); }}
+            >
+              <span className="dashicon">▤</span> Pedidos
+            </button>
             <button
               type="button"
               className={`menu-group${submenuAbierto ? ' is-open' : ''}`}
@@ -500,7 +537,7 @@ export function AdminPage() {
             <Link className="menu-item muted" to="/market/carrito"><span className="dashicon">☷</span> Ver carrito</Link>
           </nav>
           <div className="sidebar-foot">
-            <p>Horus Group · Market Lab</p>
+            <p>HORUS GROUP SRL · Market Lab</p>
             <p className="muted">CRUD: crear · leer · actualizar · eliminar</p>
           </div>
         </aside>
@@ -508,9 +545,9 @@ export function AdminPage() {
         <main className="wp-content">
           <div className="page-head">
             <div>
-              <p className="eyebrow">Horus Group · Market</p>
+              <p className="eyebrow">HORUS GROUP SRL · Market</p>
               <h1 id="page-title">
-                {vista === 'categorias' ? 'Categorías' : TITULOS[filtro]}{' '}
+                {vista === 'categorias' ? 'Categorías' : vista === 'pedidos' ? 'Pedidos' : TITULOS[filtro]}{' '}
                 {vista === 'productos' ? <span className="title-action" onClick={abrirNuevo}>Añadir nuevo</span> : null}
               </h1>
               <p className="page-sub" id="page-sub">
@@ -518,7 +555,7 @@ export function AdminPage() {
               </p>
             </div>
             <div className="page-actions">
-              <button id="btn-refresh" className="btn btn-ghost" type="button" onClick={() => void cargarTodo()}>
+              <button id="btn-refresh" className="btn btn-ghost" type="button" onClick={() => vista === 'pedidos' ? void cargarPedidos() : void cargarTodo()}>
                 ⟳ Recargar
               </button>
               {vista === 'productos' ? (
@@ -677,6 +714,29 @@ export function AdminPage() {
           {vista === 'categorias' ? (
             <CategoriasAdminPanel categorias={categorias} onRecargar={cargarTodo} toast={toast} />
           ) : null}
+
+          {vista === 'pedidos' ? <section className="wp-card orders-admin-card">
+            <div className="table-wrap">
+              <table className="wp-table">
+                <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente / contacto</th><th>Entrega</th><th>Comprobante</th><th>Total</th><th>Estado de recojo</th></tr></thead>
+                <tbody>
+                  {pedidosCargando ? <tr><td colSpan={7} className="empty">Cargando pedidos…</td></tr>
+                    : pedidos.length === 0 ? <tr><td colSpan={7} className="empty">Aún no hay pedidos.</td></tr>
+                      : pedidos.map((pedido) => <tr key={pedido.numero_pedido}>
+                        <td><strong>{pedido.numero_pedido}</strong></td>
+                        <td>{fechaCorta(pedido.createdAt)}</td>
+                        <td>{pedido.destinatario || '—'}<br /><small>{pedido.telefono_entrega || pedido.email_cliente}</small></td>
+                        <td>{pedido.metodo_entrega === 'recojo_tienda' ? <><strong>Recojo en tienda</strong><br /><small>{pedido.direccion_entrega?.direccion_linea1 || 'Dirección no disponible'}</small></> : <><strong>Envío a domicilio</strong><br /><small>{pedido.direccion_entrega?.direccion_linea1 || '—'}</small></>}</td>
+                        <td>{pedido.tipo_comprobante === 'factura' ? <><strong>Factura</strong><br /><small>{pedido.razon_social_factura} · RUC {pedido.ruc_factura}</small></> : 'Boleta'}</td>
+                        <td>S/ {Number(pedido.total).toFixed(2)}</td>
+                        <td>{pedido.metodo_entrega === 'recojo_tienda' && pedido.estado_recojo ? <select aria-label={`Estado del pedido ${pedido.numero_pedido}`} value={pedido.estado_recojo} onChange={(evento) => void cambiarEstadoRecojo(pedido.numero_pedido, evento.target.value as EstadoRecojo)}>
+                          {ESTADOS_RECOJO.map((estado) => <option key={estado} value={estado}>{ETIQUETAS_ESTADO_RECOJO[estado]}</option>)}
+                        </select> : pedido.estado}</td>
+                      </tr>)}
+                </tbody>
+              </table>
+            </div>
+          </section> : null}
 
           <section
             ref={seccionActividadRef}

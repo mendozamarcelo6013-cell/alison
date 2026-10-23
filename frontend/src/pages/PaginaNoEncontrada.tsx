@@ -22,7 +22,7 @@ export function PaginaNoEncontrada() {
         </div>
 
         <section className="state-message" role="status">
-          Vuelve al catálogo para seguir explorando el catálogo de Horus Group.
+          Vuelve al catálogo para seguir explorando el catálogo de HORUS GROUP SRL.
         </section>
 
         <p>

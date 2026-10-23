@@ -107,13 +107,30 @@ export interface ListadoCategorias {
 
 export interface PedidoCreado {
   numero_pedido: string;
+  fecha_creacion: string;
   estado: string;
+  metodo_entrega: 'envio_domicilio' | 'recojo_tienda';
+  estado_recojo?: EstadoRecojo | null;
+  direccion_entrega?: DireccionEnvio | DireccionRecojo | null;
+  tipo_comprobante: 'boleta' | 'factura';
+  ruc_factura?: string | null;
+  razon_social_factura?: string | null;
+  direccion_factura?: string | null;
   subtotal: string;
   igv_total: string;
   envio_total: string;
   total: string;
   moneda: string;
 }
+
+export type EstadoRecojo = 'pendiente' | 'en_preparacion' | 'listo_para_recoger' | 'entregado';
+export const ESTADOS_RECOJO: EstadoRecojo[] = ['pendiente', 'en_preparacion', 'listo_para_recoger', 'entregado'];
+export const ETIQUETAS_ESTADO_RECOJO: Record<EstadoRecojo, string> = {
+  pendiente: 'Pendiente',
+  en_preparacion: 'En preparación',
+  listo_para_recoger: 'Listo para recoger',
+  entregado: 'Entregado',
+};
 
 export interface RespuestaPedido {
   ok: true;
@@ -128,14 +145,48 @@ export interface DireccionEnvio {
   referencia?: string;
 }
 
+export interface DireccionRecojo {
+  tipo: 'recojo_tienda';
+  nombre_tienda: string;
+  direccion_linea1: string;
+  referencia: string | null;
+  horario: string | null;
+  maps_url: string;
+}
+
 /** Payload exacto que espera POST /api/pedidos. */
 export interface PayloadPedido {
   email: string;
   destinatario: string;
   telefono: string;
+  tipo_comprobante: 'boleta' | 'factura';
+  ruc_factura?: string;
+  razon_social_factura?: string;
+  direccion_factura?: string;
+  metodo_entrega: 'envio_domicilio' | 'recojo_tienda';
+  persona_recojo?: string;
+  telefono_recojo?: string;
   direccion?: DireccionEnvio;
   notas: string;
   items: Array<{ slug: string; cantidad: number }>;
+}
+
+export interface PedidoAdmin {
+  numero_pedido: string;
+  metodo_entrega: 'envio_domicilio' | 'recojo_tienda';
+  estado: string;
+  estado_recojo: EstadoRecojo | null;
+  tipo_comprobante: 'boleta' | 'factura';
+  ruc_factura: string | null;
+  razon_social_factura: string | null;
+  direccion_factura: string | null;
+  destinatario: string | null;
+  telefono_entrega: string | null;
+  email_cliente: string;
+  direccion_entrega: DireccionEnvio | DireccionRecojo | null;
+  total: Decimal;
+  moneda: string;
+  createdAt: string;
 }
 
 export interface ConfiguracionPago {

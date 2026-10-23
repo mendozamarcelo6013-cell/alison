@@ -4,6 +4,7 @@ import { AdminPage } from './pages/AdminPage';
 import { CarritoPage } from './pages/CarritoPage';
 import { CatalogoPage } from './pages/CatalogoPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { SeguimientoPage } from './pages/SeguimientoPage';
 import { PaginaNoEncontrada } from './pages/PaginaNoEncontrada';
 import { ProductoPage } from './pages/ProductoPage';
 import { HojasDeRuta } from './styles/HojasDeRuta';
@@ -19,10 +20,11 @@ function CompatProducto() {
 }
 
 function tituloPara(ruta: string): string {
-  if (ruta === '/market') return 'Market | Horus Group';
+  if (ruta === '/market') return 'Market | HORUS GROUP SRL';
   if (ruta.startsWith('/market/producto')) return 'Producto | Horus Market';
   if (ruta.startsWith('/market/carrito')) return 'Carrito | Horus Market';
   if (ruta.startsWith('/market/checkout')) return 'Finalizar compra | Horus Market';
+  if (ruta.startsWith('/market/seguimiento')) return 'Consultar pedido | Horus Market';
   if (
     ruta === '/horus-admin'
     || ruta.startsWith('/horus-admin/')
@@ -53,6 +55,7 @@ export function App() {
         <Route path="/market/producto" element={<ProductoPage />} />
         <Route path="/market/carrito" element={<CarritoPage />} />
         <Route path="/market/checkout" element={<CheckoutPage />} />
+        <Route path="/market/seguimiento" element={<SeguimientoPage />} />
 
         <Route path="/horus-admin" element={<AdminPage />} />
         <Route path="/admin" element={<Navigate to="/horus-admin" replace />} />

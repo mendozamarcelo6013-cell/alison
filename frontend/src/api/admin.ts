@@ -9,6 +9,8 @@ import type {
   ProductoAdmin,
   RespuestaLogin,
   UsuarioAdmin,
+  PedidoAdmin,
+  EstadoRecojo,
 } from '../types';
 
 export const TOKEN_KEY = 'horus_admin_token';
@@ -145,6 +147,14 @@ export function activarCategoriaAdmin(id: number): Promise<{ ok: true; mensaje?:
 
 export function listarAuditoriaAdmin(limit: number): Promise<ListadoAuditoria> {
   return adminApi(`/auditoria?limit=${limit}`);
+}
+
+export function listarPedidosAdmin(): Promise<{ ok: true; pedidos: PedidoAdmin[] }> {
+  return adminApi('/pedidos');
+}
+
+export function actualizarEstadoRecojoAdmin(numero: string, estado: EstadoRecojo): Promise<{ ok: true }> {
+  return adminApi(`/pedidos/${encodeURIComponent(numero)}/estado-recojo`, cuerpoJson('PATCH', { estado_recojo: estado }));
 }
 
 export interface PayloadProductoAdmin {

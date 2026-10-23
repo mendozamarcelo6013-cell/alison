@@ -37,6 +37,7 @@ export function hojasParaRuta(pathname: string): Hoja[] {
   const base: Hoja[] = ['compartido'];
 
   if (pathname === '/market') return [...base, 'catalogo'];
+  if (pathname.startsWith('/market/seguimiento')) return [...base, 'checkout'];
   if (pathname.startsWith('/market/producto')) return [...base, 'producto'];
   if (pathname.startsWith('/market/carrito')) return [...base, 'carrito'];
   if (pathname.startsWith('/market/checkout')) return [...base, 'checkout'];

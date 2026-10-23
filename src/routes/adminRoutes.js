@@ -12,6 +12,7 @@ const {
 } = require('../controllers/adminCategoriaController');
 const { login, me } = require('../controllers/authController');
 const { requerirAdmin, rateLimit } = require('../middlewares/auth');
+const { listarPedidosAdmin, actualizarEstadoRecojo } = require('../controllers/pedidoController');
 const { subirImagenes } = require('../services/imagenProducto');
 const {
   subirImagenesProducto,
@@ -31,6 +32,8 @@ router.post('/auth/login', rateLimit({
 // Todo lo siguiente exige rol admin.
 router.get('/auth/me', requerirAdmin, me);
 router.get('/stats', requerirAdmin, estadisticas);
+router.get('/pedidos', requerirAdmin, listarPedidosAdmin);
+router.patch('/pedidos/:numero_pedido/estado-recojo', requerirAdmin, actualizarEstadoRecojo);
 router.get('/categorias', requerirAdmin, listarCategorias);
 router.post('/categorias', requerirAdmin, crearCategoria);
 router.put('/categorias/:id', requerirAdmin, actualizarCategoria);

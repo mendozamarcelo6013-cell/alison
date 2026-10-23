@@ -26,7 +26,7 @@ describe('Rutas de la SPA', () => {
     pintarApp('/');
     expect(await screen.findByText('Laptop HP 15')).toBeInTheDocument();
     expect(ubicacionActual()).toBe('/market');
-    expect(document.title).toBe('Market | Horus Group');
+    expect(document.title).toBe('Market | HORUS GROUP SRL');
   });
 
   it('navega del catálogo al detalle por slug sin recargar el documento', async () => {

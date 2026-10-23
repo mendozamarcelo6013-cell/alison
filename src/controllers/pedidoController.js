@@ -6,6 +6,15 @@ const {
   PedidoItem,
   MovimientoStock,
 } = require('../models');
+const tienda = require('../config/tienda');
+
+const ESTADOS_RECOJO = ['pendiente', 'en_preparacion', 'listo_para_recoger', 'entregado'];
+const ETIQUETAS_RECOJO = {
+  pendiente: 'Pendiente',
+  en_preparacion: 'En preparación',
+  listo_para_recoger: 'Listo para recoger',
+  entregado: 'Entregado',
+};
 
 class ErrorPedido extends Error {
   constructor(status, mensaje) {
@@ -134,8 +143,11 @@ async function crearPedidoEnTransaccion(datos, numeroPedido) {
       productosPedido.push({ producto, cantidad: item.cantidad });
     }
 
-    if (contieneProductoFisico && !validarDireccionFisica(datos.direccionEntrega)) {
+    if (contieneProductoFisico && datos.metodoEntrega === 'envio_domicilio' && !validarDireccionFisica(datos.direccionEntrega)) {
       throw new ErrorPedido(400, 'La dirección de entrega es obligatoria para productos físicos');
+    }
+    if (contieneProductoFisico && datos.metodoEntrega === 'recojo_tienda' && !datos.destinatario) {
+      throw new ErrorPedido(400, 'El nombre de la persona que recogerá el pedido es obligatorio');
     }
 
     let subtotalCentavos = 0;
@@ -178,7 +190,20 @@ async function crearPedidoEnTransaccion(datos, numeroPedido) {
       email_cliente: datos.email,
       destinatario: datos.destinatario,
       telefono_entrega: datos.telefono,
-      direccion_entrega: datos.direccionEntrega,
+      direccion_entrega: datos.metodoEntrega === 'recojo_tienda' ? {
+        tipo: 'recojo_tienda',
+        nombre_tienda: tienda.nombre,
+        direccion_linea1: tienda.direccion,
+        referencia: tienda.referencia || null,
+        horario: tienda.horario || null,
+        maps_url: tienda.mapsUrl,
+      } : datos.direccionEntrega,
+      metodo_entrega: datos.metodoEntrega,
+      estado_recojo: datos.metodoEntrega === 'recojo_tienda' ? 'pendiente' : null,
+      tipo_comprobante: datos.tipoComprobante,
+      ruc_factura: datos.tipoComprobante === 'factura' ? datos.rucFactura : null,
+      razon_social_factura: datos.tipoComprobante === 'factura' ? datos.razonSocialFactura : null,
+      direccion_factura: datos.tipoComprobante === 'factura' ? datos.direccionFactura : null,
       notas_cliente: datos.notas,
       estado: 'pendiente_pago',
       subtotal,
@@ -212,7 +237,15 @@ async function crearPedidoEnTransaccion(datos, numeroPedido) {
 
     return {
       numero_pedido: pedido.numero_pedido,
+      fecha_creacion: pedido.createdAt,
       estado: pedido.estado,
+      metodo_entrega: pedido.metodo_entrega,
+      estado_recojo: pedido.estado_recojo,
+      direccion_entrega: pedido.direccion_entrega,
+      tipo_comprobante: pedido.tipo_comprobante,
+      ruc_factura: pedido.ruc_factura,
+      razon_social_factura: pedido.razon_social_factura,
+      direccion_factura: pedido.direccion_factura,
       subtotal,
       igv_total: igvTotal,
       envio_total: envioTotal,
@@ -228,6 +261,15 @@ exports.crearPedido = async (req, res) => {
   const destinatario = textoRequerido(body.destinatario);
   const telefono = textoRequerido(body.telefono);
   const notas = textoRequerido(body.notas) || null;
+  const metodoEntrega = body.metodo_entrega === undefined
+    ? 'envio_domicilio'
+    : textoRequerido(body.metodo_entrega);
+  const tipoComprobante = body.tipo_comprobante === undefined
+    ? 'boleta'
+    : textoRequerido(body.tipo_comprobante);
+  const rucFactura = textoRequerido(body.ruc_factura);
+  const razonSocialFactura = textoRequerido(body.razon_social_factura);
+  const direccionFactura = textoRequerido(body.direccion_factura);
 
   try {
     if (!email || !validarEmail(email)) {
@@ -239,12 +281,28 @@ exports.crearPedido = async (req, res) => {
     if (!telefono) {
       throw new ErrorPedido(400, 'El teléfono es obligatorio');
     }
+    if (!['envio_domicilio', 'recojo_tienda'].includes(metodoEntrega)) {
+      throw new ErrorPedido(400, 'El método de entrega no es válido');
+    }
+    if (!['boleta', 'factura'].includes(tipoComprobante)) {
+      throw new ErrorPedido(400, 'El tipo de comprobante no es válido');
+    }
+    if (tipoComprobante === 'factura') {
+      if (!/^\d{11}$/.test(rucFactura)) throw new ErrorPedido(400, 'El RUC debe tener 11 dígitos.');
+      if (!razonSocialFactura) throw new ErrorPedido(400, 'La razón social es obligatoria para emitir factura.');
+      if (!direccionFactura) throw new ErrorPedido(400, 'La dirección fiscal es obligatoria para emitir factura.');
+    }
 
     const datos = {
       email,
       destinatario,
       telefono,
-      direccionEntrega: crearDireccionEntrega(body.direccion),
+      metodoEntrega,
+      tipoComprobante,
+      rucFactura,
+      razonSocialFactura,
+      direccionFactura,
+      direccionEntrega: metodoEntrega === 'envio_domicilio' ? crearDireccionEntrega(body.direccion) : null,
       notas,
       items: consolidarItems(body.items),
     };
@@ -268,4 +326,70 @@ exports.crearPedido = async (req, res) => {
   }
 
   return res.status(500).json({ ok: false, mensaje: 'No se pudo crear el pedido' });
+};
+
+exports.consultarEstadoPedido = async (req, res) => {
+  const numeroPedido = textoRequerido(req.params.numero_pedido);
+  const telefono = textoRequerido(req.query.telefono);
+  if (!numeroPedido || !telefono) {
+    return res.status(400).json({ ok: false, mensaje: 'El número de pedido y el celular registrado son obligatorios.' });
+  }
+  try {
+    const pedido = await Pedido.findOne({ where: { numero_pedido: numeroPedido } });
+    if (!pedido || pedido.telefono_entrega !== telefono) {
+      return res.status(404).json({ ok: false, mensaje: 'No se encontró un pedido con esos datos.' });
+    }
+    const estado = pedido.metodo_entrega === 'recojo_tienda'
+      ? pedido.estado_recojo
+      : pedido.estado;
+    const etiquetas = {
+      pendiente_pago: 'Pendiente de pago', pago_reportado: 'Pago en revisión', pagado: 'Pagado',
+      preparando: 'En preparación', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado',
+    };
+    return res.json({
+      ok: true,
+      numero_pedido: pedido.numero_pedido,
+      metodo_entrega: pedido.metodo_entrega,
+      estado,
+      etiqueta_estado: pedido.metodo_entrega === 'recojo_tienda' ? ETIQUETAS_RECOJO[estado] : (etiquetas[estado] || estado),
+      ...(pedido.metodo_entrega === 'recojo_tienda' ? { direccion_entrega: pedido.direccion_entrega } : {}),
+    });
+  } catch (error) {
+    console.error('Error al consultar estado del pedido:', error);
+    return res.status(500).json({ ok: false, mensaje: 'No se pudo consultar el estado del pedido.' });
+  }
+};
+
+exports.listarPedidosAdmin = async (req, res) => {
+  try {
+    const pedidos = await Pedido.findAll({
+      attributes: ['numero_pedido', 'metodo_entrega', 'estado', 'estado_recojo', 'tipo_comprobante', 'ruc_factura', 'razon_social_factura', 'direccion_factura', 'destinatario', 'telefono_entrega', 'email_cliente', 'direccion_entrega', 'total', 'moneda', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+      limit: 100,
+    });
+    return res.json({ ok: true, pedidos });
+  } catch (error) {
+    console.error('Error al listar pedidos:', error);
+    return res.status(500).json({ ok: false, mensaje: 'No se pudieron cargar los pedidos.' });
+  }
+};
+
+exports.actualizarEstadoRecojo = async (req, res) => {
+  const numeroPedido = textoRequerido(req.params.numero_pedido);
+  const estado = textoRequerido(req.body?.estado_recojo);
+  if (!ESTADOS_RECOJO.includes(estado)) {
+    return res.status(400).json({ ok: false, mensaje: 'El estado de recojo no es válido.' });
+  }
+  try {
+    const pedido = await Pedido.findOne({ where: { numero_pedido: numeroPedido } });
+    if (!pedido) return res.status(404).json({ ok: false, mensaje: 'Pedido no encontrado.' });
+    if (pedido.metodo_entrega !== 'recojo_tienda') {
+      return res.status(400).json({ ok: false, mensaje: 'Este pedido no corresponde a recojo en tienda.' });
+    }
+    await pedido.update({ estado_recojo: estado });
+    return res.json({ ok: true, numero_pedido: numeroPedido, estado_recojo: estado });
+  } catch (error) {
+    console.error('Error al actualizar estado de recojo:', error);
+    return res.status(500).json({ ok: false, mensaje: 'No se pudo actualizar el estado del pedido.' });
+  }
 };

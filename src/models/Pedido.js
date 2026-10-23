@@ -18,6 +18,24 @@ const Pedido = sequelize.define('Pedido', {
   destinatario: { type: DataTypes.STRING(160), allowNull: true },
   telefono_entrega: { type: DataTypes.STRING(30), allowNull: true },
   direccion_entrega: { type: DataTypes.JSON, allowNull: true },
+  metodo_entrega: {
+    type: DataTypes.ENUM('envio_domicilio', 'recojo_tienda'),
+    allowNull: false,
+    defaultValue: 'envio_domicilio',
+  },
+  estado_recojo: {
+    type: DataTypes.ENUM('pendiente', 'en_preparacion', 'listo_para_recoger', 'entregado'),
+    allowNull: true,
+    defaultValue: null,
+  },
+  tipo_comprobante: {
+    type: DataTypes.ENUM('boleta', 'factura'),
+    allowNull: false,
+    defaultValue: 'boleta',
+  },
+  ruc_factura: { type: DataTypes.STRING(11), allowNull: true },
+  razon_social_factura: { type: DataTypes.STRING(180), allowNull: true },
+  direccion_factura: { type: DataTypes.STRING(255), allowNull: true },
   estado: {
     type: DataTypes.ENUM('pendiente_pago', 'pago_reportado', 'pagado', 'preparando', 'enviado', 'entregado', 'cancelado'),
     allowNull: false,
