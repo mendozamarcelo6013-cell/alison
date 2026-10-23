@@ -11,7 +11,7 @@ export function SiteFooter() {
             <span className="brand-mark" aria-hidden="true">
               <img src={logoHorus} alt="" />
             </span>
-            {' '}Horus Group
+            {' '}HORUS GROUP SRL
           </Link>
           <p className="footer-copy">
             Soluciones tecnológicas y productos seleccionados para tus proyectos.
@@ -22,6 +22,7 @@ export function SiteFooter() {
           <nav className="footer-links" aria-label="Enlaces del Market">
             <Link to="/market">Catálogo</Link>
             <Link to="/market/carrito">Mi carrito</Link>
+            <Link to="/market/seguimiento">Consultar pedido</Link>
           </nav>
         </div>
         <div>
@@ -30,7 +31,7 @@ export function SiteFooter() {
           <p className="footer-contact">horusgroupcajamarca@gmail.com</p>
         </div>
       </div>
-      <div className="footer-bottom">© 2026 Horus Group SRL. Todos los derechos reservados.</div>
+      <div className="footer-bottom">© 2026 HORUS GROUP SRL. Todos los derechos reservados.</div>
     </footer>
   );
 }

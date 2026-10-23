@@ -250,7 +250,7 @@ export function CatalogoPage() {
           <div>
             <p className="eyebrow">Catálogo en línea</p>
             <h1 id="market-title">Market</h1>
-            <p className="intro-copy">Explora productos y soluciones disponibles en Horus Group.</p>
+            <p className="intro-copy">Explora productos y soluciones disponibles en HORUS GROUP SRL.</p>
           </div>
         </section>
 
