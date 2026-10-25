@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CART_KEY, guardarCarrito, normalizarCarrito } from '../src/state/cart';
@@ -87,7 +87,7 @@ describe('Página de carrito', () => {
     pintar();
     await screen.findByText('Laptop HP 15');
 
-    await userEvent.click(screen.getByRole('button', { name: '+' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Aumentar cantidad' }));
 
     expect(JSON.parse(localStorage.getItem(CART_KEY) || '[]')).toEqual([
       { producto_id: 1, slug: 'laptop-hp-15', cantidad: 3 },
@@ -118,5 +118,79 @@ describe('Página de carrito', () => {
 
     expect(await screen.findByText('Tu carrito está vacío')).toBeInTheDocument();
     expect(fetchStub).not.toHaveBeenCalled();
+  });
+});
+
+describe('Carrito: experiencia', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('eliminar un producto no vuelve a consultar la red ni oculta el resto del carrito', async () => {
+    sembrar([
+      { producto_id: 1, slug: 'laptop-hp-15', cantidad: 1 },
+      { producto_id: 2, slug: 'mouse', cantidad: 1 },
+    ]);
+    const { fetchStub, llamadas } = crearFetch([
+      { coincidir: '/api/productos/laptop-hp-15', datos: { ok: true, producto: productoDePrueba() } },
+      { coincidir: '/api/productos/mouse', datos: { ok: true, producto: productoDePrueba({ id: 2, nombre: 'Mouse', slug: 'mouse', precio: '50.00' }) } },
+    ]);
+    vi.stubGlobal('fetch', fetchStub);
+    pintar();
+    await screen.findByText('Mouse');
+    const antes = llamadas.length;
+
+    await userEvent.click(screen.getByRole('button', { name: /eliminar laptop hp 15/i }));
+
+    expect(screen.queryByText('Laptop HP 15')).not.toBeInTheDocument();
+    expect(screen.getByText('Mouse')).toBeInTheDocument();
+    expect(llamadas).toHaveLength(antes);
+    expect(JSON.parse(localStorage.getItem(CART_KEY) || '[]')).toEqual([{ producto_id: 2, slug: 'mouse', cantidad: 1 }]);
+
+    await userEvent.click(screen.getByRole('button', { name: /eliminar mouse/i }));
+    expect(screen.getByText('Tu carrito está vacío')).toBeVisible();
+  });
+
+  it('avisa cuando la cantidad guardada excede el stock y la ajusta', async () => {
+    sembrar([{ producto_id: 1, slug: 'laptop-hp-15', cantidad: 9 }]);
+    const { fetchStub } = crearFetch([
+      { coincidir: '/api/productos/laptop-hp-15', datos: { ok: true, producto: productoDePrueba({ stock: 3 }) } },
+    ]);
+    vi.stubGlobal('fetch', fetchStub);
+    pintar();
+
+    expect(await screen.findByText(/Ajustamos la cantidad a 3 unidades/)).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(CART_KEY) || '[]')[0].cantidad).toBe(3);
+    expect(screen.getByText('Alcanzaste el máximo disponible.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Aumentar cantidad' })).toBeDisabled();
+  });
+
+  it('un producto agotado explica qué hacer y bloquea el pago', async () => {
+    sembrar([{ producto_id: 1, slug: 'laptop-hp-15', cantidad: 1 }]);
+    const { fetchStub } = crearFetch([
+      { coincidir: '/api/productos/laptop-hp-15', datos: { ok: true, producto: productoDePrueba({ stock: 0 }) } },
+    ]);
+    vi.stubGlobal('fetch', fetchStub);
+    pintar();
+
+    expect(await screen.findByText(/Este producto se agotó/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finalizar compra' })).toBeDisabled();
+  });
+
+  it('si no se pudo validar, ofrece reintentar y el checkout sigue bloqueado', async () => {
+    sembrar([{ producto_id: 1, slug: 'laptop-hp-15', cantidad: 1 }]);
+    const reglas = [{ coincidir: '/api/productos/laptop-hp-15', status: 500, datos: { ok: false, mensaje: 'Error' } }];
+    const { fetchStub } = crearFetch(reglas);
+    vi.stubGlobal('fetch', fetchStub);
+    pintar();
+
+    expect(await screen.findByText(/Algunos productos no pudieron validarse/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Finalizar compra' })).toBeDisabled();
+
+    reglas[0].status = 200;
+    (reglas[0] as { datos: unknown }).datos = { ok: true, producto: productoDePrueba() };
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Finalizar compra' })).toBeEnabled());
   });
 });

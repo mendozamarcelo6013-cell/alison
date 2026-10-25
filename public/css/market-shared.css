@@ -23,7 +23,7 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-alto, 88px) + 16px); }
 
 body {
   min-width: 320px;
@@ -247,8 +247,12 @@ h1, h2, h3 { color: var(--primary-dark); line-height: 1.18; }
 
 @media (max-width: 560px) {
   .header-content, .page-content, .catalog-intro, .catalog-section, .market-footer-content, .footer-bottom { width: min(100% - 28px, 1180px); }
-  .brand strong { font-size: 0.87rem; }
-  .brand-mark { width: 52px; height: 41px; }
+  .header-content { gap: 8px; }
+  .brand { gap: 8px; }
+  .brand strong { font-size: 0.8rem; letter-spacing: 0.3px; }
+  .brand-section { margin-top: 2px; font-size: 0.66rem; }
+  .brand-mark { width: 46px; height: 36px; }
+  .header-action-button { white-space: nowrap; }
   .header-actions { margin-left: auto; }
   /* En móvil, el carrito queda reducido al icono. */
   .header-actions--doble { width: auto; margin-left: auto; display: flex; }
@@ -261,3 +265,36 @@ h1, h2, h3 { color: var(--primary-dark); line-height: 1.18; }
   .page-content { padding: 32px 0 46px; }
   .market-footer-content { grid-template-columns: 1fr; gap: 25px; padding-top: 34px; }
 }
+
+/* ---- V2.1: utilidades de accesibilidad, imágenes y estados ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Fundido de entrada: sólo si el navegador aún no tenía la imagen. */
+.img-fundido { opacity: 0; transition: opacity 220ms ease; }
+.img-fundido.img-lista { opacity: 1; }
+
+.state-message:has(> button) { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.state-message-inline { margin: 0 0 16px; padding: 10px 14px; font-size: 0.86rem; }
+.button-primary:focus-visible, .button-secondary:focus-visible { outline-offset: 3px; }
+
+@keyframes skeleton-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+.footer-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.footer-contact { min-height: 24px; }
+
+.brand { min-height: 44px; }

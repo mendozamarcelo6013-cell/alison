@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import logoHorus from '../../../public/assets/logo-horus.png';
 
@@ -9,8 +9,26 @@ interface Props {
 
 /** Cabecera común de las páginas de tienda (clases del CSS original). */
 export function SiteHeader({ etiquetaMarca, children }: Props) {
+  const encabezado = useRef<HTMLElement>(null);
+
+  // Publica la altura real del encabezado sticky (varía según el ancho) para que
+  // el CSS reserve ese espacio al enfocar campos, al hacer scroll a un paso y en
+  // los paneles pegajosos, sin que el encabezado los tape.
+  useLayoutEffect(() => {
+    const elemento = encabezado.current;
+    if (!elemento) return undefined;
+    const publicar = () => {
+      document.documentElement.style.setProperty('--header-alto', `${elemento.offsetHeight}px`);
+    };
+    publicar();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observador = new ResizeObserver(publicar);
+    observador.observe(elemento);
+    return () => observador.disconnect();
+  }, []);
+
   return (
-    <header className="site-header">
+    <header className="site-header" ref={encabezado}>
       <div className="header-content">
         <Link className="brand" to="/market" aria-label={etiquetaMarca || 'Volver a Horus Market'}>
           <span className="brand-mark" aria-hidden="true">

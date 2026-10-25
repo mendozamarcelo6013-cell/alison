@@ -12,3 +12,16 @@ for (const clave of HOJAS_SHELL) {
   enlace.dataset.hojas = clave;
   document.head.appendChild(enlace);
 }
+
+import { afterEach, vi } from 'vitest';
+import { invalidarCacheProductos } from './src/api/productos';
+import { reiniciarFiltrosCatalogo } from './src/state/filtrosCatalogo';
+
+// jsdom no implementa scrollTo (lo usa useScrollNavegacion).
+window.scrollTo = vi.fn();
+
+// La caché de la vista y los filtros viven a nivel de módulo: se aíslan por prueba.
+afterEach(() => {
+  invalidarCacheProductos();
+  reiniciarFiltrosCatalogo();
+});

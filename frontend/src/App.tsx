@@ -8,6 +8,7 @@ import { SeguimientoPage } from './pages/SeguimientoPage';
 import { PaginaNoEncontrada } from './pages/PaginaNoEncontrada';
 import { ProductoPage } from './pages/ProductoPage';
 import { HojasDeRuta } from './styles/HojasDeRuta';
+import { useScrollNavegacion } from './hooks/useScrollNavegacion';
 
 /**
  * Compatibilidad con el enlace antiguo `market-producto.html?slug=...`: se
@@ -39,6 +40,7 @@ function tituloPara(ruta: string): string {
 
 export function App() {
   const { pathname } = useLocation();
+  useScrollNavegacion();
 
   useEffect(() => {
     document.title = tituloPara(pathname);

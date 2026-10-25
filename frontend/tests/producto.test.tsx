@@ -77,3 +77,45 @@ describe('Detalle de producto', () => {
     expect(screen.getByRole('button', { name: 'Producto agotado' })).toBeDisabled();
   });
 });
+
+describe('Detalle de producto: disponibilidad y caché', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it.each([
+    [{ stock: 20 }, 'En stock'],
+    [{ stock: 3 }, 'Últimas 3 unidades'],
+    [{ stock: 0 }, 'Agotado'],
+    [{ stock: 0, controla_stock: false }, 'Disponible'],
+  ])('muestra el estado de disponibilidad para %j', async (cambios, etiqueta) => {
+    const { fetchStub } = crearFetch([
+      { coincidir: '/api/productos/laptop-hp-15', datos: { ok: true, producto: productoDePrueba(cambios) } },
+    ]);
+    vi.stubGlobal('fetch', fetchStub);
+    pintar();
+    await screen.findByRole('heading', { name: 'Laptop HP 15' });
+
+    expect(document.querySelector('.availability-badge')).toHaveTextContent(etiqueta);
+  });
+
+  it('un producto inexistente muestra el estado 404 sin pintar un detalle', async () => {
+    const { fetchStub } = crearFetch([]);
+    vi.stubGlobal('fetch', fetchStub);
+    pintar('/market/producto/no-existe');
+
+    expect(await screen.findByText('Producto no encontrado')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Agregar al carrito' })).not.toBeInTheDocument();
+  });
+
+  it('el enlace antiguo market-producto.html?slug= sigue funcionando', async () => {
+    const { fetchStub } = crearFetch([
+      { coincidir: '/api/productos/laptop-hp-15', datos: { ok: true, producto: productoDePrueba() } },
+    ]);
+    vi.stubGlobal('fetch', fetchStub);
+    pintarApp('/market-producto.html?slug=laptop-hp-15');
+
+    expect(await screen.findByRole('heading', { name: 'Laptop HP 15' })).toBeInTheDocument();
+  });
+});

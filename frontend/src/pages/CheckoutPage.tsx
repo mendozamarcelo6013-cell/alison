@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { crearPedido, consultarEstadoPedido } from '../api/pedidos';
 import { obtenerConfiguracionPago, iniciarCheckoutPago } from '../api/pagos';
-import { consultarProducto } from '../api/productos';
+import { consultarProducto, invalidarCacheProductos } from '../api/productos';
 import { mensajeError, ERROR_PEDIDO } from '../api/client';
 import { SiteFooter } from '../components/SiteFooter';
 import { SiteHeader } from '../components/SiteHeader';
@@ -10,6 +10,15 @@ import { useCart } from '../state/CartContext';
 import { leerCarrito } from '../state/cart';
 import { precioNumero, precioTexto, textoSeguro } from '../utils/format';
 import { irA } from '../utils/navigation';
+import {
+  DATOS_CHECKOUT_INICIALES,
+  primerCampoConError,
+  validarPaso,
+  type CampoCheckout,
+  type DatosCheckout,
+  type ErroresCheckout,
+  type PasoCheckout,
+} from '../utils/validacionCheckout';
 import type { PayloadPedido, PedidoCreado, ProductoConCantidad } from '../types';
 import { TIENDA } from '../config/tienda';
 
@@ -18,9 +27,47 @@ const MENSAJE_STOCK = 'Uno o más productos ya no están disponibles. Regresa al
 
 type FaseCheckout = 'cargando' | 'vacio' | 'error' | 'listo' | 'exito';
 
+const TITULO_PASO: Record<PasoCheckout, string> = {
+  contacto: 'Datos de contacto',
+  entrega: 'Método de entrega',
+  comprobante: 'Comprobante',
+  confirmacion: 'Confirmación',
+};
+
+const ETIQUETA_PASO: Record<PasoCheckout, string> = {
+  contacto: 'Contacto',
+  entrega: 'Entrega',
+  comprobante: 'Comprobante',
+  confirmacion: 'Confirmar',
+};
+
+const ID_CAMPO: Record<CampoCheckout | 'referencia' | 'notas', string> = {
+  email: 'email',
+  destinatario: 'destinatario',
+  telefono: 'telefono',
+  departamento: 'departamento',
+  provincia: 'provincia',
+  distrito: 'distrito',
+  direccion_linea1: 'direccion-linea1',
+  referencia: 'referencia',
+  ruc_factura: 'ruc-factura',
+  razon_social_factura: 'razon-social-factura',
+  direccion_factura: 'direccion-factura',
+  notas: 'notas',
+  terminos: 'terms',
+};
+
+/** Holgura bajo el encabezado sticky antes de recolocar el scroll. */
+const HOLGURA_ENCABEZADO_PX = 8;
+
+function alturaEncabezado(): number {
+  return document.querySelector('.site-header')?.getBoundingClientRect().height ?? 0;
+}
+
 async function obtenerProductoCheckout(
   item: { slug: string; cantidad: number },
 ): Promise<ProductoConCantidad> {
+  // Siempre a la red: el checkout nunca decide con datos de la caché de la vista.
   const consulta = await consultarProducto(item.slug);
   if (!consulta.ok || !consulta.producto) throw new Error(MENSAJE_STOCK);
 
@@ -34,24 +81,124 @@ async function obtenerProductoCheckout(
   return { ...producto, cantidad: item.cantidad };
 }
 
+interface PropsProgreso {
+  pasos: PasoCheckout[];
+  indiceActual: number;
+  onIr: (indice: number) => void;
+}
+
+function ProgresoCheckout({ pasos, indiceActual, onIr }: PropsProgreso) {
+  return (
+    <nav className="stepper" aria-label="Progreso del pedido">
+      <ol>
+        {pasos.map((paso, indice) => {
+          const completado = indice < indiceActual;
+          const actual = indice === indiceActual;
+          const contenido = (
+            <>
+              <span className="stepper-marker" aria-hidden="true">{completado ? '✓' : indice + 1}</span>
+              <span className="stepper-label">{ETIQUETA_PASO[paso]}</span>
+              {completado ? <span className="sr-only"> (completado, volver a editar)</span> : null}
+            </>
+          );
+          return (
+            <li
+              key={paso}
+              className={`stepper-item${completado ? ' is-done' : ''}${actual ? ' is-current' : ''}`}
+              aria-current={actual ? 'step' : undefined}
+            >
+              {completado ? (
+                <button type="button" className="stepper-button" onClick={() => onIr(indice)}>{contenido}</button>
+              ) : (
+                <span className="stepper-button">{contenido}</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+interface PropsCampoTexto {
+  campo: CampoCheckout | 'referencia' | 'notas';
+  etiqueta: ReactNode;
+  valor: string;
+  error?: string;
+  onCambiar: (campo: CampoCheckout | 'referencia' | 'notas', valor: string) => void;
+  tipo?: string;
+  autoComplete?: string;
+  inputMode?: 'numeric' | 'tel' | 'email' | 'text';
+  maxLength?: number;
+  completo?: boolean;
+  multilinea?: boolean;
+  placeholder?: string;
+}
+
+function CampoTexto({
+  campo, etiqueta, valor, error, onCambiar, tipo = 'text', autoComplete, inputMode,
+  maxLength, completo = false, multilinea = false, placeholder,
+}: PropsCampoTexto) {
+  const id = ID_CAMPO[campo];
+  const idError = `${id}-error`;
+  const comunes = {
+    id,
+    name: campo,
+    value: valor,
+    placeholder,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? idError : undefined,
+    onChange: (evento: { target: { value: string } }) => onCambiar(campo, evento.target.value),
+  };
+
+  return (
+    <div className={`field-group${completo ? ' field-full' : ''}`}>
+      <label className="field" htmlFor={id}>
+        {etiqueta}
+        {multilinea
+          ? <textarea {...comunes} rows={3} />
+          : <input {...comunes} type={tipo} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} />}
+      </label>
+      {error ? <p id={idError} className="field-error" role="alert">{error}</p> : null}
+    </div>
+  );
+}
+
 export function CheckoutPage() {
   const { vaciar } = useCart();
-  const formularioRef = useRef<HTMLFormElement>(null);
+  const encabezadoPasoRef = useRef<HTMLHeadingElement>(null);
+  const contenedorPasoRef = useRef<HTMLDivElement>(null);
+  const envioEnCurso = useRef(false);
+  const primerRender = useRef(true);
 
   const [fase, setFase] = useState<FaseCheckout>('cargando');
   const [productosValidados, setProductosValidados] = useState<ProductoConCantidad[]>([]);
   const [requiereEntrega, setRequiereEntrega] = useState(false);
   const [mensajeErrorEstado, setMensajeError] = useState('');
+  const [errorEnvio, setErrorEnvio] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [pedidoCreado, setPedidoCreado] = useState<PedidoCreado | null>(null);
   const [pagoHabilitado, setPagoHabilitado] = useState(false);
   const [procesandoPago, setProcesandoPago] = useState(false);
-  const [metodoEntrega, setMetodoEntrega] = useState<'envio_domicilio' | 'recojo_tienda'>('envio_domicilio');
   const [telefonoConsulta, setTelefonoConsulta] = useState('');
   const [estadoConsultado, setEstadoConsultado] = useState('');
   const [consultandoEstado, setConsultandoEstado] = useState(false);
-  const [tipoComprobante, setTipoComprobante] = useState<'boleta' | 'factura'>('boleta');
   const [datosCliente, setDatosCliente] = useState<{ nombre: string; email: string; telefono: string } | null>(null);
+
+  const [datos, setDatos] = useState<DatosCheckout>(DATOS_CHECKOUT_INICIALES);
+  const [errores, setErrores] = useState<ErroresCheckout>({});
+  const [indicePaso, setIndicePaso] = useState(0);
+  const [resumenAbierto, setResumenAbierto] = useState(false);
+
+  const pasos = useMemo<PasoCheckout[]>(
+    () => (requiereEntrega
+      ? ['contacto', 'entrega', 'comprobante', 'confirmacion']
+      : ['contacto', 'comprobante', 'confirmacion']),
+    [requiereEntrega],
+  );
+  const paso = pasos[indicePaso] ?? 'contacto';
+  const esUltimoPaso = indicePaso === pasos.length - 1;
+  const metodoEntrega = requiereEntrega ? datos.metodoEntrega : 'envio_domicilio';
 
   useEffect(() => {
     let vigente = true;
@@ -82,42 +229,104 @@ export function CheckoutPage() {
     };
   }, []);
 
-  const registrarPedido = async (evento: FormEvent<HTMLFormElement>) => {
-    evento.preventDefault();
-    setMensajeError('');
+  // Al cambiar de paso: el foco pasa al título (lectores de pantalla) y la
+  // página sólo se desplaza si el paso quedó tapado por el encabezado sticky.
+  useEffect(() => {
+    if (primerRender.current) {
+      primerRender.current = false;
+      return;
+    }
+    encabezadoPasoRef.current?.focus({ preventScroll: true });
+    const contenedor = contenedorPasoRef.current;
+    if (contenedor && contenedor.getBoundingClientRect().top < alturaEncabezado() + HOLGURA_ENCABEZADO_PX) {
+      contenedor.scrollIntoView?.({ block: 'start', behavior: 'instant' });
+    }
+  }, [indicePaso]);
 
-    const formulario = formularioRef.current;
-    if (!formulario || !formulario.reportValidity()) return;
+  const cambiarCampo = (campo: CampoCheckout | 'referencia' | 'notas', valor: string) => {
+    const limpio = campo === 'ruc_factura' ? valor.replace(/\D/g, '') : valor;
+    setDatos((previos) => ({ ...previos, [campo]: limpio }));
+    setErrores((previos) => {
+      if (!(campo in previos)) return previos;
+      const { [campo as CampoCheckout]: _quitado, ...restantes } = previos;
+      return restantes;
+    });
+  };
 
-    const datos = new FormData(formulario);
-    const valor = (nombre: string) => String(datos.get(nombre) ?? '').trim();
+  const enfocarCampo = (campo: CampoCheckout) => {
+    document.getElementById(ID_CAMPO[campo])?.focus();
+  };
 
+  /** Valida el paso actual; si falla, muestra los errores y enfoca el primero. */
+  const pasoEsValido = (): boolean => {
+    const encontrados = validarPaso(paso, datos);
+    setErrores(encontrados);
+    const primero = primerCampoConError(encontrados);
+    if (primero) enfocarCampo(primero);
+    return primero === null;
+  };
+
+  const avanzar = () => {
+    if (!pasoEsValido()) return;
+    setIndicePaso((actual) => Math.min(actual + 1, pasos.length - 1));
+  };
+
+  const retroceder = () => {
+    setErrores({});
+    setIndicePaso((actual) => Math.max(actual - 1, 0));
+  };
+
+  const irAPaso = (indice: number) => {
+    if (indice >= indicePaso) return;
+    setErrores({});
+    setIndicePaso(indice);
+  };
+
+  const registrarPedido = async () => {
+    if (envioEnCurso.current) return;
+
+    // Antes de enviar se revalida cada paso: así nunca viaja un dato que el
+    // usuario modificó y dejó incompleto al volver atrás.
+    for (let indice = 0; indice < pasos.length; indice += 1) {
+      const errorPaso = validarPaso(pasos[indice], datos);
+      const campo = primerCampoConError(errorPaso);
+      if (campo) {
+        setErrores(errorPaso);
+        setIndicePaso(indice);
+        window.setTimeout(() => enfocarCampo(campo), 0);
+        return;
+      }
+    }
+
+    setErrorEnvio('');
+    const texto = (valor: string) => valor.trim();
     const payload: PayloadPedido = {
-      email: valor('email'),
-      destinatario: valor('destinatario'),
-      telefono: valor('telefono'),
-      tipo_comprobante: tipoComprobante,
-      ...(tipoComprobante === 'factura' ? {
-        ruc_factura: valor('ruc_factura'),
-        razon_social_factura: valor('razon_social_factura'),
-        direccion_factura: valor('direccion_factura'),
+      email: texto(datos.email),
+      destinatario: texto(datos.destinatario),
+      telefono: texto(datos.telefono),
+      tipo_comprobante: datos.tipoComprobante,
+      ...(datos.tipoComprobante === 'factura' ? {
+        ruc_factura: texto(datos.ruc_factura),
+        razon_social_factura: texto(datos.razon_social_factura),
+        direccion_factura: texto(datos.direccion_factura),
       } : {}),
-      metodo_entrega: requiereEntrega ? metodoEntrega : 'envio_domicilio',
+      metodo_entrega: metodoEntrega,
       ...(requiereEntrega && metodoEntrega === 'envio_domicilio'
         ? {
           direccion: {
-            departamento: valor('departamento'),
-            provincia: valor('provincia'),
-            distrito: valor('distrito'),
-            direccion_linea1: valor('direccion_linea1'),
-            referencia: valor('referencia'),
+            departamento: texto(datos.departamento),
+            provincia: texto(datos.provincia),
+            distrito: texto(datos.distrito),
+            direccion_linea1: texto(datos.direccion_linea1),
+            referencia: texto(datos.referencia),
           },
         }
         : {}),
-      notas: valor('notas'),
+      notas: texto(datos.notas),
       items: productosValidados.map(({ slug, cantidad }) => ({ slug, cantidad })),
     };
 
+    envioEnCurso.current = true;
     setEnviando(true);
     try {
       const respuesta = await crearPedido(payload);
@@ -127,6 +336,8 @@ export function CheckoutPage() {
       setDatosCliente({ nombre: payload.destinatario, email: payload.email, telefono: payload.telefono });
       setTelefonoConsulta(payload.telefono);
       vaciar();
+      // El stock cambió con este pedido: lo guardado en la vista ya no es fiable.
+      invalidarCacheProductos();
       sessionStorage.setItem(CLAVE_ULTIMO_PEDIDO, JSON.stringify(pedido));
       setFase('exito');
       setMensajeError('');
@@ -138,10 +349,17 @@ export function CheckoutPage() {
         // El pedido queda registrado aunque la pasarela aún no esté disponible.
       }
     } catch (error) {
-      setMensajeError(mensajeError(error, ERROR_PEDIDO));
+      setErrorEnvio(mensajeError(error, ERROR_PEDIDO));
+      envioEnCurso.current = false;
     } finally {
       setEnviando(false);
     }
+  };
+
+  const alEnviarFormulario = (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault();
+    if (esUltimoPaso) void registrarPedido();
+    else avanzar();
   };
 
   const consultarEstado = async (evento: FormEvent<HTMLFormElement>) => {
@@ -178,6 +396,26 @@ export function CheckoutPage() {
 
   const descargarComprobante = () => window.print();
 
+  const campo = (
+    nombre: CampoCheckout | 'referencia' | 'notas',
+    propiedades: Omit<PropsCampoTexto, 'campo' | 'valor' | 'error' | 'onCambiar'>,
+  ) => (
+    <CampoTexto
+      campo={nombre}
+      valor={String(datos[nombre])}
+      error={nombre in errores ? errores[nombre as CampoCheckout] : undefined}
+      onCambiar={cambiarCampo}
+      {...propiedades}
+    />
+  );
+
+  const direccionEntregaTexto = [datos.direccion_linea1, datos.distrito, datos.provincia, datos.departamento]
+    .map((parte) => parte.trim())
+    .filter(Boolean)
+    .join(', ');
+
+  const numeroPaso = `Paso ${indicePaso + 1} de ${pasos.length}`;
+
   return (
     <>
       <SiteHeader>
@@ -210,159 +448,231 @@ export function CheckoutPage() {
         </section>
 
         <section id="checkout-content" className="checkout-layout" hidden={fase !== 'listo'}>
-          <form id="checkout-form" className="checkout-form" noValidate ref={formularioRef} onSubmit={registrarPedido}>
-            <section className="form-card">
-              <div className="form-card-heading">
-                <p className="eyebrow">Paso 1</p>
-                <h2>Datos de contacto</h2>
-              </div>
-              <div className="form-grid">
-                <label className="field field-full">
-                  Correo electrónico
-                  <input id="email" name="email" type="email" autoComplete="email" required />
-                </label>
-                <label className="field">
-                  {metodoEntrega === 'recojo_tienda' ? 'Nombre de quien recogerá' : 'Nombre y apellidos'}
-                  <input id="destinatario" name="destinatario" type="text" autoComplete="name" required />
-                </label>
-                <label className="field">
-                  {metodoEntrega === 'recojo_tienda' ? 'Celular de quien recogerá' : 'Teléfono'}
-                  <input id="telefono" name="telefono" type="tel" autoComplete="tel" required />
-                </label>
-              </div>
-            </section>
-
-            <section id="delivery-section" className="form-card" hidden={!requiereEntrega}>
-              <div className="form-card-heading">
-                <p className="eyebrow">Paso 2</p>
-                <h2>Método de entrega</h2>
-                <p className="form-hint">Elige cómo quieres recibir tu pedido.</p>
-              </div>
-              <div className="delivery-options" role="radiogroup" aria-label="Método de entrega">
-                <label className={`delivery-option${metodoEntrega === 'envio_domicilio' ? ' selected' : ''}`}>
-                  <input type="radio" name="metodo_entrega" value="envio_domicilio" checked={metodoEntrega === 'envio_domicilio'} onChange={() => setMetodoEntrega('envio_domicilio')} />
-                  <span><strong>Envío a domicilio</strong><small>Ingresa la dirección donde recibirás el pedido.</small></span>
-                </label>
-                <label className={`delivery-option${metodoEntrega === 'recojo_tienda' ? ' selected' : ''}`}>
-                  <input type="radio" name="metodo_entrega" value="recojo_tienda" checked={metodoEntrega === 'recojo_tienda'} onChange={() => setMetodoEntrega('recojo_tienda')} />
-                  <span><strong>Recojo en tienda</strong><small>Gratis · S/ 0.00</small></span>
-                </label>
-              </div>
-              {metodoEntrega === 'envio_domicilio' ? <>
-              <div className="form-grid delivery-address-fields">
-                <p className="form-hint field-full">La necesitamos porque tu pedido incluye productos físicos.</p>
-                <label className="field">
-                  Departamento
-                  <input id="departamento" name="departamento" type="text" autoComplete="address-level1" required={requiereEntrega && metodoEntrega === 'envio_domicilio'} disabled={metodoEntrega !== 'envio_domicilio'} />
-                </label>
-                <label className="field">
-                  Provincia
-                  <input id="provincia" name="provincia" type="text" autoComplete="address-level2" required={requiereEntrega && metodoEntrega === 'envio_domicilio'} disabled={metodoEntrega !== 'envio_domicilio'} />
-                </label>
-                <label className="field">
-                  Distrito
-                  <input id="distrito" name="distrito" type="text" required={requiereEntrega && metodoEntrega === 'envio_domicilio'} disabled={metodoEntrega !== 'envio_domicilio'} />
-                </label>
-                <label className="field field-full">
-                  Dirección
-                  <input id="direccion-linea1" name="direccion_linea1" type="text" autoComplete="street-address" required={requiereEntrega && metodoEntrega === 'envio_domicilio'} disabled={metodoEntrega !== 'envio_domicilio'} />
-                </label>
-                <label className="field field-full">
-                  Referencia <span>(opcional)</span>
-                  <textarea id="referencia" name="referencia" rows={3} disabled={metodoEntrega !== 'envio_domicilio'} />
-                </label>
-              </div>
-              </> : <div className="pickup-store-card">
-                <h3>{TIENDA.nombre}</h3>
-                <p><strong>Dirección:</strong> {TIENDA.direccion}</p>
-                <p><strong>Referencia:</strong> {TIENDA.referencia || 'Por confirmar'}</p>
-                <p><strong>Horario de atención:</strong> {TIENDA.horario || 'Por confirmar'}</p>
-                <a href={TIENDA.mapsUrl} target="_blank" rel="noreferrer">Ver ubicación en Google Maps ↗</a>
-                <p className="pickup-cost"><strong>Costo de recojo: S/ 0.00</strong></p>
-              </div>}
-            </section>
-
-            <section className="form-card">
-              <div className="form-card-heading">
-                <p className="eyebrow">Paso 3</p>
-                <h2>Comprobante</h2>
-                <p className="form-hint">Selecciona el tipo de comprobante que necesitas.</p>
-              </div>
-              <div className="delivery-options" role="radiogroup" aria-label="Tipo de comprobante">
-                <label className={`delivery-option${tipoComprobante === 'boleta' ? ' selected' : ''}`}>
-                  <input type="radio" name="tipo_comprobante" value="boleta" checked={tipoComprobante === 'boleta'} onChange={() => setTipoComprobante('boleta')} />
-                  <span><strong>Boleta</strong><small>Comprobante para consumidor final.</small></span>
-                </label>
-                <label className={`delivery-option${tipoComprobante === 'factura' ? ' selected' : ''}`}>
-                  <input type="radio" name="tipo_comprobante" value="factura" checked={tipoComprobante === 'factura'} onChange={() => setTipoComprobante('factura')} />
-                  <span><strong>Factura</strong><small>Requiere RUC y datos fiscales.</small></span>
-                </label>
-              </div>
-              {tipoComprobante === 'factura' ? <div className="form-grid">
-                <label className="field">
-                  RUC
-                  <input name="ruc_factura" type="text" inputMode="numeric" autoComplete="off" maxLength={11} pattern="[0-9]{11}" title="Ingresa los 11 dígitos del RUC" required />
-                </label>
-                <label className="field">
-                  Razón social
-                  <input name="razon_social_factura" type="text" maxLength={180} required />
-                </label>
-                <label className="field field-full">
-                  Dirección fiscal
-                  <input name="direccion_factura" type="text" maxLength={255} required />
-                </label>
-              </div> : null}
-            </section>
-
-            <section className="form-card">
-              <div className="form-card-heading">
-                <p className="eyebrow">Paso 4</p>
-                <h2>Confirmación</h2>
-              </div>
-              <label className="field field-full">
-                Notas para el pedido <span>(opcional)</span>
-                <textarea
-                  id="notas"
-                  name="notas"
-                  rows={3}
-                  placeholder="Indica alguna consideración para tu pedido."
-                />
-              </label>
-              <label className="terms-check">
-                <input id="terms" name="terms" type="checkbox" required />
-                <span>He revisado los datos de mi pedido y acepto continuar con el proceso de pago.</span>
-              </label>
-              <button id="submit-order" className="button-primary submit-order" type="submit" disabled={enviando}>
-                {enviando ? 'Registrando pedido…' : 'Registrar pedido y continuar'}
-              </button>
-              <p className="payment-disclaimer">
-                Al registrar el pedido no se solicitarán datos de tarjeta en esta página. El pago en línea se
-                conectará mediante una pasarela externa segura.
-              </p>
-            </section>
-          </form>
-
-          <aside className="summary-card" aria-label="Resumen del pedido">
-            <p className="eyebrow">Resumen</p>
-            <h2>Tu compra</h2>
-            <div id="order-items" className="order-items">
-              {productosValidados.map((producto) => (
-                <div className="order-item" key={producto.slug}>
-                  <div>
-                    <span className="order-item-name">{textoSeguro(producto.nombre, 'Producto')}</span>
-                    <span className="order-item-qty">Cantidad: {producto.cantidad}</span>
-                  </div>
-                  <strong className="order-item-price">
-                    {precioTexto(precioNumero(producto.precio) * producto.cantidad)}
-                  </strong>
+          <div className="checkout-main">
+            <ProgresoCheckout pasos={pasos} indiceActual={indicePaso} onIr={irAPaso} />
+            <form id="checkout-form" className="checkout-form" noValidate onSubmit={alEnviarFormulario}>
+              <section className="form-card checkout-step" ref={contenedorPasoRef} aria-labelledby="titulo-paso">
+                <div className="form-card-heading">
+                  <p className="eyebrow">{numeroPaso}</p>
+                  <h2 id="titulo-paso" ref={encabezadoPasoRef} tabIndex={-1}>{TITULO_PASO[paso]}</h2>
+                  {paso === 'entrega' ? <p className="form-hint">Elige cómo quieres recibir tu pedido.</p> : null}
+                  {paso === 'comprobante' ? <p className="form-hint">Selecciona el tipo de comprobante que necesitas.</p> : null}
                 </div>
-              ))}
+
+                {paso === 'contacto' ? (
+                  <div className="form-grid">
+                    {campo('email', { etiqueta: 'Correo electrónico', tipo: 'email', autoComplete: 'email', inputMode: 'email', completo: true })}
+                    {campo('destinatario', {
+                      etiqueta: metodoEntrega === 'recojo_tienda' ? 'Nombre de quien recogerá' : 'Nombre y apellidos',
+                      autoComplete: 'name',
+                    })}
+                    {campo('telefono', {
+                      etiqueta: metodoEntrega === 'recojo_tienda' ? 'Celular de quien recogerá' : 'Teléfono',
+                      tipo: 'tel',
+                      autoComplete: 'tel',
+                      inputMode: 'tel',
+                    })}
+                  </div>
+                ) : null}
+
+                {paso === 'entrega' ? (
+                  <div id="delivery-section">
+                    <div className="delivery-options" role="radiogroup" aria-label="Método de entrega">
+                      <label className={`delivery-option${datos.metodoEntrega === 'envio_domicilio' ? ' selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="metodo_entrega"
+                          value="envio_domicilio"
+                          checked={datos.metodoEntrega === 'envio_domicilio'}
+                          onChange={() => setDatos((previos) => ({ ...previos, metodoEntrega: 'envio_domicilio' }))}
+                        />
+                        <span><strong>Envío a domicilio</strong><small>Ingresa la dirección donde recibirás el pedido.</small></span>
+                      </label>
+                      <label className={`delivery-option${datos.metodoEntrega === 'recojo_tienda' ? ' selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="metodo_entrega"
+                          value="recojo_tienda"
+                          checked={datos.metodoEntrega === 'recojo_tienda'}
+                          onChange={() => {
+                            setErrores({});
+                            setDatos((previos) => ({ ...previos, metodoEntrega: 'recojo_tienda' }));
+                          }}
+                        />
+                        <span><strong>Recojo en tienda</strong><small>Gratis · S/ 0.00</small></span>
+                      </label>
+                    </div>
+                    {datos.metodoEntrega === 'envio_domicilio' ? (
+                      <div className="form-grid delivery-address-fields">
+                        <p className="form-hint field-full">La necesitamos porque tu pedido incluye productos físicos.</p>
+                        {campo('departamento', { etiqueta: 'Departamento', autoComplete: 'address-level1' })}
+                        {campo('provincia', { etiqueta: 'Provincia', autoComplete: 'address-level2' })}
+                        {campo('distrito', { etiqueta: 'Distrito' })}
+                        {campo('direccion_linea1', { etiqueta: 'Dirección', autoComplete: 'street-address', completo: true })}
+                        {campo('referencia', { etiqueta: <>Referencia <span>(opcional)</span></>, completo: true, multilinea: true })}
+                      </div>
+                    ) : (
+                      <div className="pickup-store-card">
+                        <h3>{TIENDA.nombre}</h3>
+                        <p><strong>Dirección:</strong> {TIENDA.direccion}</p>
+                        <p><strong>Referencia:</strong> {TIENDA.referencia || 'Por confirmar'}</p>
+                        <p><strong>Horario de atención:</strong> {TIENDA.horario || 'Por confirmar'}</p>
+                        <a href={TIENDA.mapsUrl} target="_blank" rel="noreferrer">Ver ubicación en Google Maps ↗</a>
+                        <p className="pickup-cost"><strong>Costo de recojo: S/ 0.00</strong></p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {paso === 'comprobante' ? (
+                  <>
+                    <div className="delivery-options" role="radiogroup" aria-label="Tipo de comprobante">
+                      <label className={`delivery-option${datos.tipoComprobante === 'boleta' ? ' selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="tipo_comprobante"
+                          value="boleta"
+                          checked={datos.tipoComprobante === 'boleta'}
+                          onChange={() => {
+                            setErrores({});
+                            setDatos((previos) => ({ ...previos, tipoComprobante: 'boleta' }));
+                          }}
+                        />
+                        <span><strong>Boleta</strong><small>Comprobante para consumidor final.</small></span>
+                      </label>
+                      <label className={`delivery-option${datos.tipoComprobante === 'factura' ? ' selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="tipo_comprobante"
+                          value="factura"
+                          checked={datos.tipoComprobante === 'factura'}
+                          onChange={() => setDatos((previos) => ({ ...previos, tipoComprobante: 'factura' }))}
+                        />
+                        <span><strong>Factura</strong><small>Requiere RUC y datos fiscales.</small></span>
+                      </label>
+                    </div>
+                    {datos.tipoComprobante === 'factura' ? (
+                      <div className="form-grid">
+                        {campo('ruc_factura', { etiqueta: 'RUC', inputMode: 'numeric', autoComplete: 'off', maxLength: 11 })}
+                        {campo('razon_social_factura', { etiqueta: 'Razón social', maxLength: 180 })}
+                        {campo('direccion_factura', { etiqueta: 'Dirección fiscal', maxLength: 255, completo: true })}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {paso === 'confirmacion' ? (
+                  <>
+                    <dl className="review-list">
+                      <div className="review-item">
+                        <dt>Contacto</dt>
+                        <dd>{datos.destinatario.trim()} · {datos.email.trim()} · {datos.telefono.trim()}</dd>
+                        <button type="button" className="review-edit" onClick={() => irAPaso(0)}>Editar</button>
+                      </div>
+                      {requiereEntrega ? (
+                        <div className="review-item">
+                          <dt>Entrega</dt>
+                          <dd>
+                            {metodoEntrega === 'recojo_tienda'
+                              ? `Recojo en tienda · ${TIENDA.direccion}`
+                              : `Envío a domicilio · ${direccionEntregaTexto}`}
+                          </dd>
+                          <button type="button" className="review-edit" onClick={() => irAPaso(pasos.indexOf('entrega'))}>Editar</button>
+                        </div>
+                      ) : null}
+                      <div className="review-item">
+                        <dt>Comprobante</dt>
+                        <dd>
+                          {datos.tipoComprobante === 'factura'
+                            ? `Factura · RUC ${datos.ruc_factura} · ${datos.razon_social_factura.trim()}`
+                            : 'Boleta'}
+                        </dd>
+                        <button type="button" className="review-edit" onClick={() => irAPaso(pasos.indexOf('comprobante'))}>Editar</button>
+                      </div>
+                    </dl>
+                    {campo('notas', {
+                      etiqueta: <>Notas para el pedido <span>(opcional)</span></>,
+                      completo: true,
+                      multilinea: true,
+                      placeholder: 'Indica alguna consideración para tu pedido.',
+                    })}
+                    <label className="terms-check">
+                      <input
+                        id="terms"
+                        name="terms"
+                        type="checkbox"
+                        checked={datos.terminos}
+                        aria-invalid={errores.terminos ? true : undefined}
+                        aria-describedby={errores.terminos ? 'terms-error' : undefined}
+                        onChange={(evento) => {
+                          setDatos((previos) => ({ ...previos, terminos: evento.target.checked }));
+                          setErrores((previos) => ({ ...previos, terminos: undefined }));
+                        }}
+                      />
+                      <span>He revisado los datos de mi pedido y acepto continuar con el proceso de pago.</span>
+                    </label>
+                    {errores.terminos ? <p id="terms-error" className="field-error" role="alert">{errores.terminos}</p> : null}
+                    {errorEnvio ? <p className="state-message error-state submit-error" role="alert">{errorEnvio}</p> : null}
+                  </>
+                ) : null}
+
+                <div className="step-actions">
+                  {indicePaso > 0 ? (
+                    <button type="button" className="button-secondary" onClick={retroceder} disabled={enviando}>
+                      ← Atrás
+                    </button>
+                  ) : <span />}
+                  {esUltimoPaso ? (
+                    <button id="submit-order" className="button-primary submit-order" type="submit" disabled={enviando}>
+                      {enviando ? 'Registrando pedido…' : 'Registrar pedido y continuar'}
+                    </button>
+                  ) : (
+                    <button className="button-primary" type="submit">Continuar →</button>
+                  )}
+                </div>
+                {esUltimoPaso ? (
+                  <p className="payment-disclaimer">
+                    Al registrar el pedido no se solicitarán datos de tarjeta en esta página. El pago en línea se
+                    conectará mediante una pasarela externa segura.
+                  </p>
+                ) : null}
+              </section>
+            </form>
+          </div>
+
+          <aside className={`summary-card${resumenAbierto ? ' is-open' : ''}`} aria-label="Resumen del pedido">
+            <button
+              type="button"
+              className="summary-toggle"
+              aria-expanded={resumenAbierto}
+              aria-controls="resumen-contenido"
+              onClick={() => setResumenAbierto((abierto) => !abierto)}
+            >
+              <span>Resumen de compra</span>
+              <strong>{precioTexto(total)}</strong>
+            </button>
+            <div id="resumen-contenido" className="summary-body">
+              <p className="eyebrow">Resumen</p>
+              <h2>Tu compra</h2>
+              <div id="order-items" className="order-items">
+                {productosValidados.map((producto) => (
+                  <div className="order-item" key={producto.slug}>
+                    <div>
+                      <span className="order-item-name">{textoSeguro(producto.nombre, 'Producto')}</span>
+                      <span className="order-item-qty">Cantidad: {producto.cantidad}</span>
+                    </div>
+                    <strong className="order-item-price">
+                      {precioTexto(precioNumero(producto.precio) * producto.cantidad)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+              <div className="summary-line total-line">
+                <span>Total</span>
+                <strong id="order-total">{precioTexto(total)}</strong>
+              </div>
+              <p className="validation-note">El monto y la disponibilidad se validan nuevamente antes de crear el pedido.</p>
             </div>
-            <div className="summary-line total-line">
-              <span>Total</span>
-              <strong id="order-total">{precioTexto(total)}</strong>
-            </div>
-            <p className="validation-note">El monto y la disponibilidad se validan nuevamente antes de crear el pedido.</p>
           </aside>
         </section>
 

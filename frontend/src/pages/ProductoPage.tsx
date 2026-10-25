@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { consultarProducto } from '../api/productos';
+import { consultarProductoParaVista, detalleEnCache } from '../api/productos';
 import { ERROR_PRODUCTO, mensajeError } from '../api/client';
 import { GaleriaProducto } from '../components/GaleriaProducto';
 import { SiteFooter } from '../components/SiteFooter';
@@ -23,6 +23,20 @@ function DatoProducto({ nombre, valor }: { nombre: string; valor: string }) {
   );
 }
 
+function EtiquetaDisponibilidad({ producto }: { producto: ProductoDetalle }) {
+  const unidades = Number(producto.stock);
+  if (producto.controla_stock === false) {
+    return <span className="availability-badge is-ok">Disponible</span>;
+  }
+  if (Number.isFinite(unidades) && unidades <= 0) {
+    return <span className="availability-badge is-out">Agotado</span>;
+  }
+  if (Number.isFinite(unidades) && unidades <= 5) {
+    return <span className="availability-badge is-low">Últimas {unidades} unidades</span>;
+  }
+  return <span className="availability-badge is-ok">En stock</span>;
+}
+
 interface ControlesProps {
   producto: ProductoDetalle;
 }
@@ -40,7 +54,7 @@ function ControlesCompra({ producto }: ControlesProps) {
   if (controlaStock && stock === 0) {
     return (
       <div className="purchase-controls">
-        <p className="stock-alert">Agotado</p>
+        <p className="stock-alert">Este producto no tiene stock por el momento.</p>
         <button className="cart-button" type="button" disabled>
           Producto agotado
         </button>
@@ -114,50 +128,74 @@ function ControlesCompra({ producto }: ControlesProps) {
   );
 }
 
+function estadoInicial(slug: string | undefined): { estado: EstadoProducto; producto: ProductoDetalle | null } {
+  const enCache = slug ? detalleEnCache(slug) : null;
+  return enCache
+    ? { estado: { fase: 'listo' }, producto: enCache.producto }
+    : { estado: { fase: 'cargando' }, producto: null };
+}
+
 export function ProductoPage() {
   const { unidades } = useCart();
   const { slug: slugParam } = useParams<{ slug: string }>();
-  const [estado, setEstado] = useState<EstadoProducto>({ fase: 'cargando' });
-  const [producto, setProducto] = useState<ProductoDetalle | null>(null);
+  const [{ estado, producto }, setVista] = useState(() => estadoInicial(slugParam?.trim()));
 
   useEffect(() => {
     let vigente = true;
     const slug = slugParam?.trim();
 
-    setEstado({ fase: 'cargando' });
-    setProducto(null);
-
     if (!slug) {
-      setEstado({
-        fase: 'estado',
-        titulo: 'Producto inválido',
-        mensaje: 'No se indicó el producto que deseas consultar.',
+      setVista({
+        estado: {
+          fase: 'estado',
+          titulo: 'Producto inválido',
+          mensaje: 'No se indicó el producto que deseas consultar.',
+        },
+        producto: null,
       });
-      return;
+      return undefined;
     }
 
+    // Con datos en caché se muestran al instante y se revalidan detrás; sólo se
+    // pasa a «cargando» cuando no hay nada que enseñar.
+    const enCache = detalleEnCache(slug);
+    setVista((previo) => {
+      if (enCache) return { estado: { fase: 'listo' }, producto: enCache.producto };
+      return previo.estado.fase === 'cargando' && previo.producto === null
+        ? previo
+        : { estado: { fase: 'cargando' }, producto: null };
+    });
+    if (enCache?.vigente) return undefined;
+
     (async () => {
-      const resultado = await consultarProducto(slug);
+      const resultado = await consultarProductoParaVista(slug);
       if (!vigente) return;
 
       if (resultado.status === 404) {
-        setEstado({
-          fase: 'estado',
-          titulo: 'Producto no encontrado',
-          mensaje: 'El producto solicitado no existe o ya no está disponible.',
+        setVista({
+          estado: {
+            fase: 'estado',
+            titulo: 'Producto no encontrado',
+            mensaje: 'El producto solicitado no existe o ya no está disponible.',
+          },
+          producto: null,
         });
         return;
       }
       if (!resultado.ok || !resultado.producto) {
-        setEstado({
-          fase: 'estado',
-          titulo: 'No fue posible cargar el producto',
-          mensaje: textoSeguro(resultado.mensaje, ERROR_PRODUCTO),
+        // Un fallo de revalidación no debe tapar un producto ya visible.
+        if (enCache) return;
+        setVista({
+          estado: {
+            fase: 'estado',
+            titulo: 'No fue posible cargar el producto',
+            mensaje: textoSeguro(resultado.mensaje, ERROR_PRODUCTO),
+          },
+          producto: null,
         });
         return;
       }
-      setProducto(resultado.producto);
-      setEstado({ fase: 'listo' });
+      setVista({ estado: { fase: 'listo' }, producto: resultado.producto });
     })();
 
     return () => {
@@ -165,11 +203,13 @@ export function ProductoPage() {
     };
   }, [slugParam]);
 
-  const imagenes = producto && Array.isArray(producto.imagenes) ? producto.imagenes : [];
-  const imagenesOrdenadas = [...imagenes].sort((a, b) => {
-    if (Boolean(a.principal) !== Boolean(b.principal)) return a.principal ? -1 : 1;
-    return Number(a.orden || 0) - Number(b.orden || 0);
-  });
+  const imagenesOrdenadas = useMemo(() => {
+    const imagenes = producto && Array.isArray(producto.imagenes) ? producto.imagenes : [];
+    return [...imagenes].sort((a, b) => {
+      if (Boolean(a.principal) !== Boolean(b.principal)) return a.principal ? -1 : 1;
+      return Number(a.orden || 0) - Number(b.orden || 0);
+    });
+  }, [producto]);
 
   const nombreProducto = textoSeguro(producto?.nombre, 'Producto');
   const unidadesStock = producto ? Number(producto.stock) : Number.NaN;
@@ -219,7 +259,10 @@ export function ProductoPage() {
                   <h1 className="product-name">{nombreProducto}</h1>
                   {producto.destacado ? <span className="featured-badge">Destacado</span> : null}
                 </div>
-                <p className="product-price">{formatearPrecio(producto.precio)}</p>
+                <div className="product-price-row">
+                  <p className="product-price">{formatearPrecio(producto.precio)}</p>
+                  <EtiquetaDisponibilidad producto={producto} />
+                </div>
                 <p className="short-description">
                   {textoSeguro(producto.descripcion_corta, 'Sin descripción disponible.')}
                 </p>
