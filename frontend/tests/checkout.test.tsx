@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CART_KEY } from '../src/state/cart';
@@ -24,14 +24,28 @@ function pintar() {
   return pintarApp('/market/checkout');
 }
 
-async function rellenarFormulario() {
+const continuar = () => userEvent.click(screen.getByRole('button', { name: /continuar/i }));
+
+async function rellenarContacto() {
   await userEvent.type(screen.getByLabelText(/correo electrónico/i), 'ana@horus.test');
   await userEvent.type(screen.getByLabelText(/nombre y apellidos/i), 'Ana Torres');
   await userEvent.type(screen.getByLabelText(/^teléfono/i), '999888777');
+  await continuar();
+}
+
+async function rellenarEntrega() {
   await userEvent.type(screen.getByLabelText(/^departamento/i), 'Lima');
   await userEvent.type(screen.getByLabelText(/^provincia/i), 'Lima');
   await userEvent.type(screen.getByLabelText(/^distrito/i), 'Miraflores');
   await userEvent.type(screen.getByLabelText(/^dirección$/i), 'Av. Principal 123');
+  await continuar();
+}
+
+/** Recorre contacto → entrega → comprobante (boleta) hasta la confirmación. */
+async function rellenarFormulario({ fisico = true } = {}) {
+  await rellenarContacto();
+  if (fisico) await rellenarEntrega();
+  await continuar();
   await userEvent.type(screen.getByLabelText(/^notas para el pedido/i), 'Llamar antes de llegar.');
   await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
 }
@@ -54,8 +68,14 @@ describe('Checkout', () => {
     expect(await screen.findByText('Laptop HP 15')).toBeInTheDocument();
     expect(screen.getByText('Cantidad: 2')).toBeInTheDocument();
     expect(screen.getByText('S/ 4999.80', { selector: '#order-total' })).toBeInTheDocument();
-    expect(screen.getByText(/tu pedido incluye productos físicos/i)).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: /progreso del pedido/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Datos de contacto' })).toBeInTheDocument();
+    expect(screen.getByText('Paso 1 de 4')).toBeInTheDocument();
+
+    await rellenarContacto();
+    expect(screen.getByRole('heading', { name: 'Método de entrega' })).toBeInTheDocument();
     expect(screen.getByText(/la necesitamos porque tu pedido/i)).toBeVisible();
+    expect(screen.getByLabelText(/^departamento/i)).toBeVisible();
   });
 
   it('crea el pedido con items mínimos y guarda horus_market_last_order', async () => {
@@ -113,13 +133,13 @@ describe('Checkout', () => {
     pintar();
     await screen.findByText('Consultoría');
 
-    expect(screen.getByText(/dirección de entrega/i).closest('section')).not.toBeVisible();
-    expect(screen.getByLabelText(/^departamento/i)).not.toBeVisible();
+    // Sin productos físicos el paso de entrega no existe.
+    expect(screen.getByText('Paso 1 de 3')).toBeInTheDocument();
+    expect(screen.queryByText(/método de entrega/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^departamento/i)).not.toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText(/correo electrónico/i), 'ana@horus.test');
-    await userEvent.type(screen.getByLabelText(/nombre y apellidos/i), 'Ana Torres');
-    await userEvent.type(screen.getByLabelText(/^teléfono/i), '999888777');
-    await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
+    await rellenarFormulario({ fisico: false });
+    expect(screen.queryByLabelText(/^departamento/i)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
 
     expect(await screen.findByText(/Tu pedido HG-2026-0002 fue registrado/)).toBeInTheDocument();
@@ -144,5 +164,164 @@ describe('Checkout', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /registrar pedido y continuar/i })).not.toBeInTheDocument();
     expect(llamadas.some((llamada) => llamada.url === '/api/pedidos')).toBe(false);
+  });
+});
+
+describe('Checkout por pasos', () => {
+  const montar = (extra: Parameters<typeof crearFetch>[0] = []) => {
+    const reglas = crearFetch([
+      { coincidir: '/api/productos/laptop-hp-15', datos: { ok: true, producto: productoDePrueba() } },
+      { coincidir: '/api/pagos/configuracion', datos: { ok: true, habilitada: false, proveedor: null } },
+      ...extra,
+    ]);
+    vi.stubGlobal('fetch', reglas.fetchStub);
+    return reglas;
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem(CART_KEY, JSON.stringify([{ producto_id: 1, slug: 'laptop-hp-15', cantidad: 2 }]));
+  });
+
+  it('no avanza con campos vacíos: muestra errores accesibles y enfoca el primero', async () => {
+    montar();
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+
+    await continuar();
+
+    expect(screen.getByRole('heading', { name: 'Datos de contacto' })).toBeInTheDocument();
+    const alertas = screen.getAllByRole('alert').map((alerta) => alerta.textContent);
+    expect(alertas).toEqual(expect.arrayContaining([
+      'Ingresa tu correo electrónico.',
+      'Ingresa tu nombre y apellidos.',
+      'Ingresa un número de contacto.',
+    ]));
+    const correo = screen.getByLabelText(/correo electrónico/i);
+    expect(correo).toHaveAttribute('aria-invalid', 'true');
+    expect(correo).toHaveAccessibleDescription('Ingresa tu correo electrónico.');
+    expect(correo).toHaveFocus();
+
+    await userEvent.type(correo, 'ana@horus.test');
+    expect(correo).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('marca el progreso y permite retroceder sin perder los datos escritos', async () => {
+    montar();
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    const progreso = screen.getByRole('navigation', { name: /progreso del pedido/i });
+    expect(within(progreso).getAllByRole('listitem')).toHaveLength(4);
+    expect(within(progreso).getAllByRole('listitem')[0]).toHaveAttribute('aria-current', 'step');
+
+    await rellenarContacto();
+    await userEvent.type(screen.getByLabelText(/^departamento/i), 'Lima');
+    expect(within(progreso).getAllByRole('listitem')[1]).toHaveAttribute('aria-current', 'step');
+
+    await userEvent.click(screen.getByRole('button', { name: /atrás/i }));
+    expect(screen.getByLabelText(/correo electrónico/i)).toHaveValue('ana@horus.test');
+    expect(screen.getByLabelText(/^teléfono/i)).toHaveValue('999888777');
+
+    await continuar();
+    expect(screen.getByLabelText(/^departamento/i)).toHaveValue('Lima');
+  });
+
+  it('recojo en tienda: no pide dirección, muestra la tienda y no la envía', async () => {
+    const { llamadas } = montar([{ coincidir: '/api/pedidos', datos: { ok: true, pedido: { ...PEDIDO, metodo_entrega: 'recojo_tienda' } } }]);
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarContacto();
+
+    await userEvent.click(screen.getByLabelText(/recojo en tienda/i));
+    expect(screen.queryByLabelText(/^departamento/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/costo de recojo: s\/ 0\.00/i)).toBeInTheDocument();
+    await continuar();
+    await continuar();
+    await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
+    await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
+    await screen.findByText(/Tu pedido HG-2026-0001 fue registrado/);
+
+    const payload = cuerpoJson<PayloadPedido>(llamadaPorUrl(llamadas, '/api/pedidos'));
+    expect(payload.metodo_entrega).toBe('recojo_tienda');
+    expect(payload).not.toHaveProperty('direccion');
+  });
+
+  it('factura: exige RUC de 11 dígitos, razón social y dirección fiscal, y los envía', async () => {
+    const { llamadas } = montar([{ coincidir: '/api/pedidos', datos: { ok: true, pedido: PEDIDO } }]);
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarContacto();
+    await rellenarEntrega();
+
+    expect(screen.queryByLabelText(/^ruc/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(/^factura/i));
+    await userEvent.type(screen.getByLabelText(/^ruc/i), '2012');
+    await continuar();
+    expect(screen.getByText('El RUC debe tener 11 dígitos.')).toBeInTheDocument();
+    expect(screen.getByText('Ingresa la razón social.')).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/^ruc/i), '3456789');
+    await userEvent.type(screen.getByLabelText(/razón social/i), 'Empresa SAC');
+    await userEvent.type(screen.getByLabelText(/dirección fiscal/i), 'Av. Fiscal 1');
+    await continuar();
+    await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
+    await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
+    await screen.findByText(/Tu pedido HG-2026-0001 fue registrado/);
+
+    const payload = cuerpoJson<PayloadPedido>(llamadaPorUrl(llamadas, '/api/pedidos'));
+    expect(payload).toMatchObject({
+      tipo_comprobante: 'factura',
+      ruc_factura: '20123456789',
+      razon_social_factura: 'Empresa SAC',
+      direccion_factura: 'Av. Fiscal 1',
+    });
+  });
+
+  it('la confirmación resume los datos y exige aceptar antes de registrar', async () => {
+    const { llamadas } = montar([{ coincidir: '/api/pedidos', datos: { ok: true, pedido: PEDIDO } }]);
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarFormulario();
+    expect(screen.getByText(/Ana Torres · ana@horus\.test · 999888777/)).toBeInTheDocument();
+    expect(screen.getByText(/Envío a domicilio · Av\. Principal 123/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText(/he revisado los datos/i)); // desmarca
+    await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
+    expect(screen.getByText(/debes confirmar que revisaste los datos/i)).toBeInTheDocument();
+    expect(llamadas.some((llamada) => llamada.url === '/api/pedidos')).toBe(false);
+  });
+
+  it('evita envíos duplicados: dos clics seguidos crean un solo pedido', async () => {
+    let liberar: () => void = () => {};
+    const { llamadas, fetchStub } = montar([{ coincidir: '/api/pedidos', datos: { ok: true, pedido: PEDIDO } }]);
+    const original = fetchStub.getMockImplementation();
+    fetchStub.mockImplementation(async (entrada, init) => {
+      if (String(entrada) === '/api/pedidos') await new Promise<void>((resolver) => { liberar = resolver; });
+      return original!(entrada, init);
+    });
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarFormulario();
+
+    const boton = screen.getByRole('button', { name: /registrar pedido y continuar/i });
+    await userEvent.click(boton);
+    await userEvent.click(screen.getByRole('button', { name: /registrando pedido/i }));
+    liberar();
+
+    await screen.findByText(/Tu pedido HG-2026-0001 fue registrado/);
+    expect(llamadas.filter((llamada) => llamada.url === '/api/pedidos')).toHaveLength(1);
+  });
+
+  it('si el backend rechaza el pedido, muestra el error junto al botón y permite reintentar', async () => {
+    montar([{ coincidir: '/api/pedidos', status: 409, datos: { ok: false, mensaje: 'Stock insuficiente para Laptop HP 15.' } }]);
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarFormulario();
+    await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
+
+    expect(await screen.findByText('Stock insuficiente para Laptop HP 15.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /registrar pedido y continuar/i })).toBeEnabled();
+    expect(localStorage.getItem(CART_KEY)).not.toBe('[]');
   });
 });

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { consultarProducto } from '../api/productos';
+import { consultarProducto, detalleEnCache } from '../api/productos';
 import { SiteFooter } from '../components/SiteFooter';
 import { SiteHeader } from '../components/SiteHeader';
 import { ProductoImagen } from '../components/ProductoImagen';
@@ -10,8 +10,15 @@ import { precioNumero, precioTexto, textoSeguro } from '../utils/format';
 import type { ItemCarrito as ItemAlmacenado, ProductoDetalle } from '../types';
 
 type Registro =
-  | { item: ItemAlmacenado; estado: 'no-disponible' | 'error'; producto?: undefined; stock?: undefined }
-  | { item: ItemAlmacenado; estado: 'disponible' | 'agotado'; producto: ProductoDetalle; stock: number };
+  | { item: ItemAlmacenado; estado: 'no-disponible' | 'error'; producto?: undefined; stock?: undefined; ajustadoA?: undefined }
+  | {
+    item: ItemAlmacenado;
+    estado: 'disponible' | 'agotado';
+    producto: ProductoDetalle;
+    stock: number;
+    /** Stock al que se redujo la cantidad guardada, si excedía la existencia. */
+    ajustadoA?: number;
+  };
 
 type FaseCarrito = 'cargando' | 'vacio' | 'listo';
 
@@ -30,14 +37,14 @@ async function consultarRegistro(
     const stock = controlaStock
       ? Math.max(0, Number.parseInt(String(producto.stock), 10) || 0)
       : 99;
-    const itemActualizado = stock > 0 && item.cantidad > stock
-      ? actualizar(item.slug, stock, stock)
-      : item;
+    const excedeStock = stock > 0 && item.cantidad > stock;
+    const itemActualizado = excedeStock ? actualizar(item.slug, stock, stock) : item;
 
     return {
       item: itemActualizado || item,
       producto,
       stock,
+      ajustadoA: excedeStock && controlaStock ? stock : undefined,
       estado: controlaStock && stock === 0 ? 'agotado' : 'disponible',
     };
   } catch {
@@ -78,6 +85,8 @@ function ElementoCarrito({ registro, onCambiar, onEliminar }: PropsElemento) {
             )}
             className="item-image"
             placeholderClassName="item-placeholder"
+            ancho={224}
+            alto={224}
           />
           <div>
             <span className="item-category">
@@ -93,6 +102,20 @@ function ElementoCarrito({ registro, onCambiar, onEliminar }: PropsElemento) {
             <p className={`availability${registro.estado === 'agotado' ? ' unavailable' : ''}`}>
               {registro.estado === 'agotado' ? 'Agotado' : 'Disponible'}
             </p>
+            {registro.ajustadoA !== undefined ? (
+              <p className="item-notice" role="status">
+                Ajustamos la cantidad a {registro.ajustadoA} unidad{registro.ajustadoA === 1 ? '' : 'es'}, que es el stock disponible.
+              </p>
+            ) : null}
+            {registro.estado === 'agotado' ? (
+              <p className="item-notice item-notice-error" role="alert">
+                Este producto se agotó. Elimínalo para continuar con la compra.
+              </p>
+            ) : null}
+            {registro.estado === 'disponible' && producto.controla_stock !== false
+              && registro.item.cantidad >= registro.stock ? (
+                <p className="item-limit">Alcanzaste el máximo disponible.</p>
+              ) : null}
           </div>
         </>
       )}
@@ -104,17 +127,19 @@ function ElementoCarrito({ registro, onCambiar, onEliminar }: PropsElemento) {
             <strong className="item-subtotal">
               Subtotal: {precioTexto(precioNumero(producto.precio) * registro.item.cantidad)}
             </strong>
-            <div className="quantity-control">
+            <div className="quantity-control" role="group" aria-label={`Cantidad de ${textoSeguro(producto.nombre, 'producto')}`}>
               <button
                 type="button"
+                aria-label="Disminuir cantidad"
                 disabled={registro.estado === 'agotado' || registro.item.cantidad <= 1}
                 onClick={() => onCambiar(registro, registro.item.cantidad - 1)}
               >
                 −
               </button>
-              <span className="quantity-value">{registro.item.cantidad}</span>
+              <span className="quantity-value" aria-live="polite">{registro.item.cantidad}</span>
               <button
                 type="button"
+                aria-label="Aumentar cantidad"
                 disabled={registro.estado === 'agotado' || registro.item.cantidad >= registro.stock}
                 onClick={() => onCambiar(registro, registro.item.cantidad + 1)}
               >
@@ -123,7 +148,12 @@ function ElementoCarrito({ registro, onCambiar, onEliminar }: PropsElemento) {
             </div>
           </>
         ) : null}
-        <button type="button" className="remove-button" onClick={() => onEliminar(registro.item.slug)}>
+        <button
+          type="button"
+          className="remove-button"
+          aria-label={`Eliminar ${textoSeguro(producto?.nombre, 'producto no disponible')} del carrito`}
+          onClick={() => onEliminar(registro.item.slug)}
+        >
           Eliminar
         </button>
       </div>
@@ -131,30 +161,68 @@ function ElementoCarrito({ registro, onCambiar, onEliminar }: PropsElemento) {
   );
 }
 
+/**
+ * Registros provisionales con lo que la vista ya conoce de cada producto. Sólo
+ * sirven para no dejar la pantalla en blanco: el botón de compra permanece
+ * bloqueado hasta que el backend confirma precio y stock.
+ */
+function registrosDesdeCache(carrito: ItemAlmacenado[]): Registro[] | null {
+  const registros: Registro[] = [];
+  for (const item of carrito) {
+    const enCache = detalleEnCache(item.slug);
+    if (!enCache) return null;
+    const producto = enCache.producto;
+    const controlaStock = producto.controla_stock !== false;
+    const stock = controlaStock ? Math.max(0, Number.parseInt(String(producto.stock), 10) || 0) : 99;
+    registros.push({
+      item,
+      producto,
+      stock,
+      estado: controlaStock && stock === 0 ? 'agotado' : 'disponible',
+    });
+  }
+  return registros;
+}
+
 export function CarritoPage() {
   const { actualizar, eliminar, unidades } = useCart();
   const navegar = useNavigate();
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [fase, setFase] = useState<FaseCarrito>('cargando');
+  const [validando, setValidando] = useState(true);
   const [errorValidacion, setErrorValidacion] = useState(false);
+  const ultimaCarga = useRef(0);
 
   const cargar = useCallback(async () => {
-    setFase('cargando');
+    const numeroCarga = ultimaCarga.current + 1;
+    ultimaCarga.current = numeroCarga;
     setErrorValidacion(false);
+    setValidando(true);
 
     const carrito = leerCarrito();
     if (carrito.length === 0) {
       setRegistros([]);
       setFase('vacio');
+      setValidando(false);
       return;
+    }
+
+    const provisionales = registrosDesdeCache(carrito);
+    if (provisionales) {
+      setRegistros(provisionales);
+      setFase('listo');
+    } else {
+      setFase('cargando');
     }
 
     const resultados = await Promise.all(
       carrito.map((item) => consultarRegistro(item, actualizar)),
     );
+    if (numeroCarga !== ultimaCarga.current) return;
     setRegistros(resultados);
     setErrorValidacion(resultados.some((registro) => registro.estado === 'error'));
     setFase('listo');
+    setValidando(false);
   }, [actualizar]);
 
   useEffect(() => {
@@ -166,14 +234,19 @@ export function CarritoPage() {
     if (!actualizado) return;
     setRegistros((previo) => previo.map((elemento) => (
       elemento.item.slug === registro.item.slug
-        ? ({ ...elemento, item: actualizado } as Registro)
+        ? ({ ...elemento, item: actualizado, ajustadoA: undefined } as Registro)
         : elemento
     )));
   };
 
+  // Se actualiza la lista en memoria: volver a consultar toda la red tras cada
+  // eliminación hacía parpadear el carrito completo.
   const eliminarItem = (slug: string) => {
     eliminar(slug);
-    void cargar();
+    const restantes = registros.filter((registro) => registro.item.slug !== slug);
+    setRegistros(restantes);
+    setErrorValidacion(restantes.some((registro) => registro.estado === 'error'));
+    if (restantes.length === 0) setFase('vacio');
   };
 
   const subtotal = registros
@@ -186,7 +259,7 @@ export function CarritoPage() {
   const hayDisponibles = registros.some(
     (registro) => registro.producto && registro.estado === 'disponible',
   );
-  const checkoutBloqueado = contieneNoDisponible || !hayDisponibles;
+  const checkoutBloqueado = validando || contieneNoDisponible || !hayDisponibles;
 
   return (
     <>
@@ -210,8 +283,14 @@ export function CarritoPage() {
         <p id="loading-state" className="state-message" role="status" hidden={fase !== 'cargando'}>
           Actualizando productos del carrito…
         </p>
+        {fase === 'listo' && validando ? (
+          <p className="state-message state-message-inline" role="status">
+            Verificando precio y stock actualizados…
+          </p>
+        ) : null}
         <section id="error-state" className="state-message error-state" role="alert" hidden={!errorValidacion}>
-          Algunos productos no pudieron validarse. Puedes eliminarlos o intentar nuevamente.
+          <span>Algunos productos no pudieron validarse. Puedes eliminarlos o intentar nuevamente.</span>
+          <button type="button" className="button-secondary" onClick={() => void cargar()}>Reintentar</button>
         </section>
         <section id="empty-state" className="empty-state" hidden={fase !== 'vacio'}>
           <h2>Tu carrito está vacío</h2>
@@ -244,7 +323,7 @@ export function CarritoPage() {
               type="button"
               className="checkout-button"
               disabled={fase !== 'listo' || checkoutBloqueado}
-              title={checkoutBloqueado ? 'Elimina o actualiza los productos no disponibles para continuar.' : ''}
+              title={checkoutBloqueado && !validando ? 'Elimina o actualiza los productos no disponibles para continuar.' : ''}
               onClick={() => navegar('/market/checkout')}
             >
               Finalizar compra
