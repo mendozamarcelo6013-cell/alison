@@ -113,6 +113,7 @@ describe('Caché y navegación', () => {
       await userEvent.type(screen.getByLabelText(etiqueta), valor);
     }
     await userEvent.click(screen.getByRole('button', { name: /continuar/i }));
+    await userEvent.type(screen.getByLabelText(/^dni/i), '45678912');
     await userEvent.click(screen.getByRole('button', { name: /continuar/i }));
     await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
     await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));

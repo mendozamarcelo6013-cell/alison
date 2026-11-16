@@ -41,11 +41,16 @@ async function rellenarEntrega() {
   await continuar();
 }
 
+async function rellenarBoleta(dni = '45678912') {
+  await userEvent.type(screen.getByLabelText(/^dni/i), dni);
+  await continuar();
+}
+
 /** Recorre contacto → entrega → comprobante (boleta) hasta la confirmación. */
 async function rellenarFormulario({ fisico = true } = {}) {
   await rellenarContacto();
   if (fisico) await rellenarEntrega();
-  await continuar();
+  await rellenarBoleta();
   await userEvent.type(screen.getByLabelText(/^notas para el pedido/i), 'Llamar antes de llegar.');
   await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
 }
@@ -104,6 +109,8 @@ describe('Checkout', () => {
     expect(payload.destinatario).toBe('Ana Torres');
     expect(payload.telefono).toBe('999888777');
     expect(payload.notas).toBe('Llamar antes de llegar.');
+    expect(payload.tipo_comprobante).toBe('boleta');
+    expect(payload.dni_boleta).toBe('45678912');
     expect(payload.direccion).toEqual({
       departamento: 'Lima',
       provincia: 'Lima',
@@ -236,8 +243,10 @@ describe('Checkout por pasos', () => {
     await userEvent.click(screen.getByLabelText(/recojo en tienda/i));
     expect(screen.queryByLabelText(/^departamento/i)).not.toBeInTheDocument();
     expect(screen.getByText(/costo de recojo: s\/ 0\.00/i)).toBeInTheDocument();
+    expect(screen.getByText('Cuadra 2 de Av. Independencia')).toBeInTheDocument();
+    expect(screen.getByText('Lunes a viernes de 3:00 p. m. a 6:00 p. m.')).toBeInTheDocument();
     await continuar();
-    await continuar();
+    await rellenarBoleta();
     await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
     await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
     await screen.findByText(/Tu pedido HG-2026-0001 fue registrado/);
@@ -276,6 +285,102 @@ describe('Checkout por pasos', () => {
       razon_social_factura: 'Empresa SAC',
       direccion_factura: 'Av. Fiscal 1',
     });
+    expect(payload).not.toHaveProperty('dni_boleta');
+  });
+
+  it('RUC: acepta sólo dígitos, nunca más de 11, y no deja continuar con menos', async () => {
+    montar();
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarContacto();
+    await rellenarEntrega();
+    await userEvent.click(screen.getByLabelText(/^factura/i));
+
+    const ruc = screen.getByLabelText(/^ruc/i);
+    await userEvent.type(ruc, '20-1234-5678-9012');
+    expect(ruc).toHaveValue('20123456789');
+    expect(screen.getByText('11 de 11 dígitos')).toBeInTheDocument();
+
+    await userEvent.clear(ruc);
+    await userEvent.type(ruc, '2012345678');
+    expect(screen.getByText('10 de 11 dígitos')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/razón social/i), 'Empresa SAC');
+    await userEvent.type(screen.getByLabelText(/dirección fiscal/i), 'Av. Fiscal 1');
+    await continuar();
+    expect(screen.getByRole('heading', { name: 'Comprobante' })).toBeInTheDocument();
+    expect(ruc).toHaveAccessibleDescription(expect.stringContaining('El RUC debe tener 11 dígitos.'));
+    expect(ruc).toHaveFocus();
+  });
+
+  it('boleta: exige DNI de 8 dígitos y lo muestra debajo del cliente en el comprobante', async () => {
+    const { llamadas } = montar([{
+      coincidir: '/api/pedidos',
+      datos: { ok: true, pedido: { ...PEDIDO, tipo_comprobante: 'boleta', dni_boleta: '45678912', fecha_creacion: '2026-11-05T15:00:00Z' } },
+    }]);
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarContacto();
+    await rellenarEntrega();
+
+    const dni = screen.getByLabelText(/^dni/i);
+    await userEvent.type(dni, '4567abc89123');
+    expect(dni).toHaveValue('45678912');
+    await userEvent.clear(dni);
+    await userEvent.type(dni, '4567891');
+    await continuar();
+    expect(screen.getByText('El DNI debe tener 8 dígitos.')).toBeInTheDocument();
+
+    await userEvent.type(dni, '2');
+    await continuar();
+    expect(screen.getByText(/Boleta · DNI 45678912/)).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
+    await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
+    await screen.findByText(/Tu pedido HG-2026-0001 fue registrado/);
+
+    expect(cuerpoJson<PayloadPedido>(llamadaPorUrl(llamadas, '/api/pedidos')).dni_boleta).toBe('45678912');
+    const detalles = [...document.querySelectorAll('.receipt-details p')].map((p) => p.textContent);
+    expect(detalles.slice(0, 2)).toEqual(['Cliente: Ana Torres', 'DNI: 45678912']);
+  });
+
+  it('factura: el resumen y el comprobante desglosan el IGV (18%)', async () => {
+    montar([{
+      coincidir: '/api/pedidos',
+      datos: {
+        ok: true,
+        pedido: {
+          ...PEDIDO,
+          igv_total: '762.68',
+          tipo_comprobante: 'factura',
+          ruc_factura: '20123456789',
+          razon_social_factura: 'Empresa SAC',
+          direccion_factura: 'Av. Fiscal 1',
+          fecha_creacion: '2026-11-05T15:00:00Z',
+        },
+      },
+    }]);
+    pintar();
+    await screen.findByLabelText(/correo electrónico/i);
+    await rellenarContacto();
+    await rellenarEntrega();
+    expect(screen.queryByLabelText(/desglose del igv/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText(/^factura/i));
+    const resumen = screen.getByLabelText(/desglose del igv/i);
+    expect(resumen).toHaveTextContent('Op. gravadaS/ 4237.12');
+    expect(resumen).toHaveTextContent('IGV (18%)S/ 762.68');
+
+    await userEvent.type(screen.getByLabelText(/^ruc/i), '20123456789');
+    await userEvent.type(screen.getByLabelText(/razón social/i), 'Empresa SAC');
+    await userEvent.type(screen.getByLabelText(/dirección fiscal/i), 'Av. Fiscal 1');
+    await continuar();
+    await userEvent.click(screen.getByLabelText(/he revisado los datos/i));
+    await userEvent.click(screen.getByRole('button', { name: /registrar pedido y continuar/i }));
+    await screen.findByText(/Tu pedido HG-2026-0001 fue registrado/);
+
+    const comprobante = document.querySelector('#receipt-print .receipt-igv');
+    expect(comprobante).toHaveTextContent('Op. gravadaS/ 4237.12');
+    expect(comprobante).toHaveTextContent('IGV (18%)S/ 762.68');
+    expect(document.querySelector('#receipt-print .receipt-total')).toHaveTextContent('S/ 4999.80');
   });
 
   it('la confirmación resume los datos y exige aceptar antes de registrar', async () => {

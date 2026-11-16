@@ -12,6 +12,8 @@ import { precioNumero, precioTexto, textoSeguro } from '../utils/format';
 import { irA } from '../utils/navigation';
 import {
   DATOS_CHECKOUT_INICIALES,
+  DIGITOS_DNI,
+  DIGITOS_RUC,
   primerCampoConError,
   validarPaso,
   type CampoCheckout,
@@ -21,6 +23,7 @@ import {
 } from '../utils/validacionCheckout';
 import type { PayloadPedido, PedidoCreado, ProductoConCantidad } from '../types';
 import { TIENDA } from '../config/tienda';
+import { desglosarIgv, TASA_IGV } from '../utils/igv';
 
 const CLAVE_ULTIMO_PEDIDO = 'horus_market_last_order';
 const MENSAJE_STOCK = 'Uno o más productos ya no están disponibles. Regresa al carrito para actualizarlo.';
@@ -50,6 +53,7 @@ const ID_CAMPO: Record<CampoCheckout | 'referencia' | 'notas', string> = {
   distrito: 'distrito',
   direccion_linea1: 'direccion-linea1',
   referencia: 'referencia',
+  dni_boleta: 'dni-boleta',
   ruc_factura: 'ruc-factura',
   razon_social_factura: 'razon-social-factura',
   direccion_factura: 'direccion-factura',
@@ -133,21 +137,25 @@ interface PropsCampoTexto {
   completo?: boolean;
   multilinea?: boolean;
   placeholder?: string;
+  /** Texto de ayuda visible bajo el campo (p. ej. contador de dígitos). */
+  ayuda?: string;
 }
 
 function CampoTexto({
   campo, etiqueta, valor, error, onCambiar, tipo = 'text', autoComplete, inputMode,
-  maxLength, completo = false, multilinea = false, placeholder,
+  maxLength, completo = false, multilinea = false, placeholder, ayuda,
 }: PropsCampoTexto) {
   const id = ID_CAMPO[campo];
   const idError = `${id}-error`;
+  const idAyuda = `${id}-ayuda`;
+  const descripciones = [ayuda ? idAyuda : '', error ? idError : ''].filter(Boolean).join(' ');
   const comunes = {
     id,
     name: campo,
     value: valor,
     placeholder,
     'aria-invalid': error ? true : undefined,
-    'aria-describedby': error ? idError : undefined,
+    'aria-describedby': descripciones || undefined,
     onChange: (evento: { target: { value: string } }) => onCambiar(campo, evento.target.value),
   };
 
@@ -159,6 +167,7 @@ function CampoTexto({
           ? <textarea {...comunes} rows={3} />
           : <input {...comunes} type={tipo} autoComplete={autoComplete} inputMode={inputMode} maxLength={maxLength} />}
       </label>
+      {ayuda ? <p id={idAyuda} className="form-hint">{ayuda}</p> : null}
       {error ? <p id={idError} className="field-error" role="alert">{error}</p> : null}
     </div>
   );
@@ -244,7 +253,9 @@ export function CheckoutPage() {
   }, [indicePaso]);
 
   const cambiarCampo = (campo: CampoCheckout | 'referencia' | 'notas', valor: string) => {
-    const limpio = campo === 'ruc_factura' ? valor.replace(/\D/g, '') : valor;
+    // DNI y RUC: sólo dígitos y nunca más de los permitidos.
+    const limiteDigitos = campo === 'dni_boleta' ? DIGITOS_DNI : campo === 'ruc_factura' ? DIGITOS_RUC : null;
+    const limpio = limiteDigitos === null ? valor : valor.replace(/\D/g, '').slice(0, limiteDigitos);
     setDatos((previos) => ({ ...previos, [campo]: limpio }));
     setErrores((previos) => {
       if (!(campo in previos)) return previos;
@@ -305,6 +316,7 @@ export function CheckoutPage() {
       destinatario: texto(datos.destinatario),
       telefono: texto(datos.telefono),
       tipo_comprobante: datos.tipoComprobante,
+      ...(datos.tipoComprobante === 'boleta' ? { dni_boleta: texto(datos.dni_boleta) } : {}),
       ...(datos.tipoComprobante === 'factura' ? {
         ruc_factura: texto(datos.ruc_factura),
         razon_social_factura: texto(datos.razon_social_factura),
@@ -393,6 +405,8 @@ export function CheckoutPage() {
     (acumulado, producto) => acumulado + precioNumero(producto.precio) * producto.cantidad,
     0,
   );
+
+  const desgloseResumen = desglosarIgv(total);
 
   const descargarComprobante = () => window.print();
 
@@ -551,9 +565,26 @@ export function CheckoutPage() {
                         <span><strong>Factura</strong><small>Requiere RUC y datos fiscales.</small></span>
                       </label>
                     </div>
+                    {datos.tipoComprobante === 'boleta' ? (
+                      <div className="form-grid">
+                        {campo('dni_boleta', {
+                          etiqueta: 'DNI',
+                          inputMode: 'numeric',
+                          autoComplete: 'off',
+                          maxLength: DIGITOS_DNI,
+                          ayuda: `${datos.dni_boleta.length} de ${DIGITOS_DNI} dígitos`,
+                        })}
+                      </div>
+                    ) : null}
                     {datos.tipoComprobante === 'factura' ? (
                       <div className="form-grid">
-                        {campo('ruc_factura', { etiqueta: 'RUC', inputMode: 'numeric', autoComplete: 'off', maxLength: 11 })}
+                        {campo('ruc_factura', {
+                          etiqueta: 'RUC',
+                          inputMode: 'numeric',
+                          autoComplete: 'off',
+                          maxLength: DIGITOS_RUC,
+                          ayuda: `${datos.ruc_factura.length} de ${DIGITOS_RUC} dígitos`,
+                        })}
                         {campo('razon_social_factura', { etiqueta: 'Razón social', maxLength: 180 })}
                         {campo('direccion_factura', { etiqueta: 'Dirección fiscal', maxLength: 255, completo: true })}
                       </div>
@@ -585,7 +616,7 @@ export function CheckoutPage() {
                         <dd>
                           {datos.tipoComprobante === 'factura'
                             ? `Factura · RUC ${datos.ruc_factura} · ${datos.razon_social_factura.trim()}`
-                            : 'Boleta'}
+                            : `Boleta · DNI ${datos.dni_boleta}`}
                         </dd>
                         <button type="button" className="review-edit" onClick={() => irAPaso(pasos.indexOf('comprobante'))}>Editar</button>
                       </div>
@@ -667,6 +698,12 @@ export function CheckoutPage() {
                   </div>
                 ))}
               </div>
+              {datos.tipoComprobante === 'factura' ? (
+                <dl className="igv-breakdown" aria-label="Desglose del IGV">
+                  <div><dt>Op. gravada</dt><dd>{precioTexto(desgloseResumen.gravada)}</dd></div>
+                  <div><dt>IGV ({TASA_IGV}%)</dt><dd>{precioTexto(desgloseResumen.igv)}</dd></div>
+                </dl>
+              ) : null}
               <div className="summary-line total-line">
                 <span>Total</span>
                 <strong id="order-total">{precioTexto(total)}</strong>
@@ -692,7 +729,11 @@ export function CheckoutPage() {
               <p>{new Date(pedidoCreado.fecha_creacion).toLocaleString('es-PE')}</p>
             </header>
             <div className="receipt-details">
-              <p><strong>Cliente:</strong> {pedidoCreado.tipo_comprobante === 'factura' ? pedidoCreado.razon_social_factura : datosCliente?.nombre}</p>
+              {/* Cliente y DNI en la misma celda: el DNI queda justo debajo del cliente. */}
+              <div>
+                <p><strong>Cliente:</strong> {pedidoCreado.tipo_comprobante === 'factura' ? pedidoCreado.razon_social_factura : datosCliente?.nombre}</p>
+                {pedidoCreado.tipo_comprobante === 'boleta' ? <p><strong>DNI:</strong> {pedidoCreado.dni_boleta}</p> : null}
+              </div>
               {pedidoCreado.tipo_comprobante === 'factura' ? <>
                 <p><strong>RUC:</strong> {pedidoCreado.ruc_factura}</p>
                 <p><strong>Dirección fiscal:</strong> {pedidoCreado.direccion_factura}</p>
@@ -709,6 +750,10 @@ export function CheckoutPage() {
               {productosValidados.map((producto) => <div className="receipt-row" key={producto.slug}>
                 <span>{textoSeguro(producto.nombre, 'Producto')}</span><span>{producto.cantidad}</span><span>{precioTexto(precioNumero(producto.precio) * producto.cantidad)}</span>
               </div>)}
+              {pedidoCreado.tipo_comprobante === 'factura' ? <dl className="igv-breakdown receipt-igv" aria-label="Desglose del IGV">
+                <div><dt>Op. gravada</dt><dd>{precioTexto(precioNumero(pedidoCreado.total) - precioNumero(pedidoCreado.igv_total))}</dd></div>
+                <div><dt>IGV ({TASA_IGV}%)</dt><dd>{precioTexto(precioNumero(pedidoCreado.igv_total))}</dd></div>
+              </dl> : null}
               <div className="receipt-total"><span>Total</span><strong>{precioTexto(precioNumero(pedidoCreado.total))}</strong></div>
             </div>
             <p className="receipt-payment-note">{pedidoCreado.estado === 'pagado' ? 'Pago confirmado.' : 'Este comprobante confirma el pedido. El pago aún no está confirmado y no acredita un pago realizado.'}</p>

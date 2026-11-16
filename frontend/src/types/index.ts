@@ -113,6 +113,7 @@ export interface PedidoCreado {
   estado_recojo?: EstadoRecojo | null;
   direccion_entrega?: DireccionEnvio | DireccionRecojo | null;
   tipo_comprobante: 'boleta' | 'factura';
+  dni_boleta?: string | null;
   ruc_factura?: string | null;
   razon_social_factura?: string | null;
   direccion_factura?: string | null;
@@ -160,6 +161,7 @@ export interface PayloadPedido {
   destinatario: string;
   telefono: string;
   tipo_comprobante: 'boleta' | 'factura';
+  dni_boleta?: string;
   ruc_factura?: string;
   razon_social_factura?: string;
   direccion_factura?: string;
@@ -177,6 +179,7 @@ export interface PedidoAdmin {
   estado: string;
   estado_recojo: EstadoRecojo | null;
   tipo_comprobante: 'boleta' | 'factura';
+  dni_boleta: string | null;
   ruc_factura: string | null;
   razon_social_factura: string | null;
   direccion_factura: string | null;

@@ -28,8 +28,19 @@ describe('validarPaso', () => {
     expect(validarPaso('entrega', datos({ metodoEntrega: 'recojo_tienda' }))).toEqual({});
   });
 
+  it('pide DNI de exactamente 8 dígitos sólo para boleta', () => {
+    expect(validarPaso('comprobante', datos()).dni_boleta).toBe('Ingresa el DNI.');
+    expect(validarPaso('comprobante', datos({ dni_boleta: '1234567' })).dni_boleta).toMatch(/8 dígitos/);
+    expect(validarPaso('comprobante', datos({ dni_boleta: '123456789' })).dni_boleta).toMatch(/8 dígitos/);
+    expect(validarPaso('comprobante', datos({ dni_boleta: '12345678' }))).toEqual({});
+    expect(validarPaso('comprobante', datos({ tipoComprobante: 'factura', dni_boleta: '' })).dni_boleta).toBeUndefined();
+  });
+
   it('pide RUC de 11 dígitos, razón social y dirección fiscal sólo para factura', () => {
-    expect(validarPaso('comprobante', datos())).toEqual({});
+    expect(validarPaso('comprobante', datos({ dni_boleta: '12345678' }))).toEqual({});
+    expect(validarPaso('comprobante', datos({
+      tipoComprobante: 'factura', ruc_factura: '201234567890', razon_social_factura: 'E', direccion_factura: 'D',
+    })).ruc_factura).toMatch(/11 dígitos/);
     const errores = validarPaso('comprobante', datos({ tipoComprobante: 'factura', ruc_factura: '123' }));
     expect(errores.ruc_factura).toMatch(/11 dígitos/);
     expect(errores.razon_social_factura).toBeDefined();

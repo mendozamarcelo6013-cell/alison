@@ -15,6 +15,7 @@ export interface DatosCheckout {
   direccion_linea1: string;
   referencia: string;
   tipoComprobante: TipoComprobante;
+  dni_boleta: string;
   ruc_factura: string;
   razon_social_factura: string;
   direccion_factura: string;
@@ -36,6 +37,7 @@ export const DATOS_CHECKOUT_INICIALES: DatosCheckout = {
   direccion_linea1: '',
   referencia: '',
   tipoComprobante: 'boleta',
+  dni_boleta: '',
   ruc_factura: '',
   razon_social_factura: '',
   direccion_factura: '',
@@ -44,7 +46,11 @@ export const DATOS_CHECKOUT_INICIALES: DatosCheckout = {
 };
 
 const CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RUC = /^\d{11}$/;
+/** Longitud exacta de los documentos: ni más ni menos dígitos. */
+export const DIGITOS_DNI = 8;
+export const DIGITOS_RUC = 11;
+const DNI = new RegExp(`^\\d{${DIGITOS_DNI}}$`);
+const RUC = new RegExp(`^\\d{${DIGITOS_RUC}}$`);
 const MINIMO_DIGITOS_TELEFONO = 6;
 
 const vacio = (valor: string) => valor.trim() === '';
@@ -53,7 +59,7 @@ const vacio = (valor: string) => valor.trim() === '';
 export const ORDEN_CAMPOS: CampoCheckout[] = [
   'email', 'destinatario', 'telefono',
   'departamento', 'provincia', 'distrito', 'direccion_linea1',
-  'ruc_factura', 'razon_social_factura', 'direccion_factura',
+  'dni_boleta', 'ruc_factura', 'razon_social_factura', 'direccion_factura',
   'terminos',
 ];
 
@@ -82,9 +88,14 @@ export function validarPaso(paso: PasoCheckout, datos: DatosCheckout): ErroresCh
     if (vacio(datos.direccion_linea1)) errores.direccion_linea1 = 'Ingresa la dirección de entrega.';
   }
 
+  if (paso === 'comprobante' && datos.tipoComprobante === 'boleta') {
+    if (vacio(datos.dni_boleta)) errores.dni_boleta = 'Ingresa el DNI.';
+    else if (!DNI.test(datos.dni_boleta.trim())) errores.dni_boleta = `El DNI debe tener ${DIGITOS_DNI} dígitos.`;
+  }
+
   if (paso === 'comprobante' && datos.tipoComprobante === 'factura') {
     if (vacio(datos.ruc_factura)) errores.ruc_factura = 'Ingresa el RUC.';
-    else if (!RUC.test(datos.ruc_factura.trim())) errores.ruc_factura = 'El RUC debe tener 11 dígitos.';
+    else if (!RUC.test(datos.ruc_factura.trim())) errores.ruc_factura = `El RUC debe tener ${DIGITOS_RUC} dígitos.`;
     if (vacio(datos.razon_social_factura)) errores.razon_social_factura = 'Ingresa la razón social.';
     if (vacio(datos.direccion_factura)) errores.direccion_factura = 'Ingresa la dirección fiscal.';
   }

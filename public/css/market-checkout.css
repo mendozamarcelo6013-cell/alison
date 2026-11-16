@@ -34,6 +34,12 @@
 .receipt-row { display: grid; grid-template-columns: minmax(0, 1fr) 60px 110px; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 0.86rem; }
 .receipt-row span:nth-child(2), .receipt-row span:nth-child(3) { text-align: right; }
 .receipt-row-head { color: var(--primary-dark); font-weight: 700; }
+/* Desglose del IGV (factura): resumen de compra y comprobante. */
+.igv-breakdown { display: grid; gap: 6px; margin: 0; padding: 12px 0; border-top: 1px solid var(--line); font-size: 0.86rem; }
+.igv-breakdown div { display: flex; justify-content: space-between; gap: 14px; }
+.igv-breakdown dt { color: var(--text-secondary); }
+.igv-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; }
+.receipt-igv { border-top: 0; padding-bottom: 0; }
 .receipt-total { display: flex; justify-content: space-between; padding-top: 14px; color: var(--primary-dark); font-size: 1.12rem; }
 .receipt-payment-note { margin: 18px 0 0; padding: 10px 12px; border-radius: 7px; background: #fff7e6; color: #604511; font-size: 0.82rem; }
 .receipt-download { display: grid; justify-items: center; gap: 7px; margin: 18px 0 24px; }

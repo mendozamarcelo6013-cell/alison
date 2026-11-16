@@ -727,7 +727,7 @@ export function AdminPage() {
                         <td>{fechaCorta(pedido.createdAt)}</td>
                         <td>{pedido.destinatario || '—'}<br /><small>{pedido.telefono_entrega || pedido.email_cliente}</small></td>
                         <td>{pedido.metodo_entrega === 'recojo_tienda' ? <><strong>Recojo en tienda</strong><br /><small>{pedido.direccion_entrega?.direccion_linea1 || 'Dirección no disponible'}</small></> : <><strong>Envío a domicilio</strong><br /><small>{pedido.direccion_entrega?.direccion_linea1 || '—'}</small></>}</td>
-                        <td>{pedido.tipo_comprobante === 'factura' ? <><strong>Factura</strong><br /><small>{pedido.razon_social_factura} · RUC {pedido.ruc_factura}</small></> : 'Boleta'}</td>
+                        <td>{pedido.tipo_comprobante === 'factura' ? <><strong>Factura</strong><br /><small>{pedido.razon_social_factura} · RUC {pedido.ruc_factura}</small></> : <>Boleta{pedido.dni_boleta ? <><br /><small>DNI {pedido.dni_boleta}</small></> : null}</>}</td>
                         <td>S/ {Number(pedido.total).toFixed(2)}</td>
                         <td>{pedido.metodo_entrega === 'recojo_tienda' && pedido.estado_recojo ? <select aria-label={`Estado del pedido ${pedido.numero_pedido}`} value={pedido.estado_recojo} onChange={(evento) => void cambiarEstadoRecojo(pedido.numero_pedido, evento.target.value as EstadoRecojo)}>
                           {ESTADOS_RECOJO.map((estado) => <option key={estado} value={estado}>{ETIQUETAS_ESTADO_RECOJO[estado]}</option>)}

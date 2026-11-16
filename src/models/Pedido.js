@@ -33,6 +33,7 @@ const Pedido = sequelize.define('Pedido', {
     allowNull: false,
     defaultValue: 'boleta',
   },
+  dni_boleta: { type: DataTypes.STRING(8), allowNull: true },
   ruc_factura: { type: DataTypes.STRING(11), allowNull: true },
   razon_social_factura: { type: DataTypes.STRING(180), allowNull: true },
   direccion_factura: { type: DataTypes.STRING(255), allowNull: true },
