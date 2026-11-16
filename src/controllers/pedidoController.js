@@ -201,6 +201,7 @@ async function crearPedidoEnTransaccion(datos, numeroPedido) {
       metodo_entrega: datos.metodoEntrega,
       estado_recojo: datos.metodoEntrega === 'recojo_tienda' ? 'pendiente' : null,
       tipo_comprobante: datos.tipoComprobante,
+      dni_boleta: datos.tipoComprobante === 'boleta' ? datos.dniBoleta : null,
       ruc_factura: datos.tipoComprobante === 'factura' ? datos.rucFactura : null,
       razon_social_factura: datos.tipoComprobante === 'factura' ? datos.razonSocialFactura : null,
       direccion_factura: datos.tipoComprobante === 'factura' ? datos.direccionFactura : null,
@@ -243,6 +244,7 @@ async function crearPedidoEnTransaccion(datos, numeroPedido) {
       estado_recojo: pedido.estado_recojo,
       direccion_entrega: pedido.direccion_entrega,
       tipo_comprobante: pedido.tipo_comprobante,
+      dni_boleta: pedido.dni_boleta,
       ruc_factura: pedido.ruc_factura,
       razon_social_factura: pedido.razon_social_factura,
       direccion_factura: pedido.direccion_factura,
@@ -267,6 +269,7 @@ exports.crearPedido = async (req, res) => {
   const tipoComprobante = body.tipo_comprobante === undefined
     ? 'boleta'
     : textoRequerido(body.tipo_comprobante);
+  const dniBoleta = textoRequerido(body.dni_boleta);
   const rucFactura = textoRequerido(body.ruc_factura);
   const razonSocialFactura = textoRequerido(body.razon_social_factura);
   const direccionFactura = textoRequerido(body.direccion_factura);
@@ -287,6 +290,9 @@ exports.crearPedido = async (req, res) => {
     if (!['boleta', 'factura'].includes(tipoComprobante)) {
       throw new ErrorPedido(400, 'El tipo de comprobante no es válido');
     }
+    if (tipoComprobante === 'boleta' && !/^\d{8}$/.test(dniBoleta)) {
+      throw new ErrorPedido(400, 'El DNI debe tener 8 dígitos.');
+    }
     if (tipoComprobante === 'factura') {
       if (!/^\d{11}$/.test(rucFactura)) throw new ErrorPedido(400, 'El RUC debe tener 11 dígitos.');
       if (!razonSocialFactura) throw new ErrorPedido(400, 'La razón social es obligatoria para emitir factura.');
@@ -299,6 +305,7 @@ exports.crearPedido = async (req, res) => {
       telefono,
       metodoEntrega,
       tipoComprobante,
+      dniBoleta,
       rucFactura,
       razonSocialFactura,
       direccionFactura,
@@ -363,7 +370,7 @@ exports.consultarEstadoPedido = async (req, res) => {
 exports.listarPedidosAdmin = async (req, res) => {
   try {
     const pedidos = await Pedido.findAll({
-      attributes: ['numero_pedido', 'metodo_entrega', 'estado', 'estado_recojo', 'tipo_comprobante', 'ruc_factura', 'razon_social_factura', 'direccion_factura', 'destinatario', 'telefono_entrega', 'email_cliente', 'direccion_entrega', 'total', 'moneda', 'createdAt'],
+      attributes: ['numero_pedido', 'metodo_entrega', 'estado', 'estado_recojo', 'tipo_comprobante', 'dni_boleta', 'ruc_factura', 'razon_social_factura', 'direccion_factura', 'destinatario', 'telefono_entrega', 'email_cliente', 'direccion_entrega', 'total', 'moneda', 'createdAt'],
       order: [['createdAt', 'DESC']],
       limit: 100,
     });
